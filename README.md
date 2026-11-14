@@ -46,15 +46,15 @@ The regular Connect 4 game has certain restrictions, such as being confined to 6
 
 ## Technical Architecture
 
-The program employs the standard C libraries such as stdio.h, string.h, time.h, and stdlib.h and exhibits several concepts of system programming :
+The program employs the standard C libraries such as stdio.h, string.h, time.h, and stdlib.h and exhibits several concepts of system programming:
 
 | Concept | Implementation |
 | :--- | :--- |
-| **Dynamic Memory Allocation** | Dynamically creates two-dimensional array boards based on user-defined numbers of rows and columns . |
-| **Recursion** | Line counting function scans rows, columns, and diagonals dynamically regardless of board size and win length . |
-| **Structure and Pointers** | Bundles player information, match status, and moves performed . |
-| **File Handling** | Performs data handling for saved matches, match logs, and game ranking . |
-| **Input Validations** | Validates menu input and column input to avoid out-of-bound actions . |
+| **Dynamic Memory Allocation** | Dynamically creates two-dimensional array boards based on user-defined numbers of rows and columns. |
+| **Recursion** | Line counting function scans rows, columns, and diagonals dynamically regardless of board size and win length. |
+| **Structure and Pointers** | Bundles player information, match status, and moves performed. |
+| **File Handling** | Performs data handling for saved matches, match logs, and game ranking. |
+| **Input Validations** | Validates menu input and column input to avoid out-of-bound actions. |
 
 ---
 
