@@ -99,6 +99,10 @@ int main(void){
             break;
     }
 
+    int AIorNot;
+    printf("1. AI\n2. Human\nchoice: ");
+    AIorNot = readInt();
+
     // initialize array(board)
     char board[rows][cols];
 
@@ -110,40 +114,42 @@ int main(void){
 
     int win = 0;
     int tie = 0;
-
+    int moves = 0;
     int colChoice;
     
     int turn = 1; // 1 for player 1, 2 for player 2
     
-    // this is jst for me(the end variable)
 
-    int end = 0;
-
-    int AIorNot;
-    printf("1. AI\n2. Human\nchoice: ");
-    AIorNot = readInt();
-    // a diff loop for AI ig?
     // GAME LOOOPP!!!!!!
     switch(AIorNot){
-        case 1:
-        do{
-            printf("do u wanna end?");
-            end = readInt();
-            printf("player %d's turn\n", turn);
-            printf("enter the column number to add a piece\n");
-            colChoice = readInt();
-            while (colChoice < 1 || colChoice > cols || boardColsFilled[colChoice-1] < 0) {
-                printf("invalid or full column, choose another: ");
-                colChoice = readInt();
-            }
-            dropPiece(cols, board, boardColsFilled, colChoice, &turn);
-            printBoard(rows, cols, board);
-
-        } while (end==0);
-        break;
         case 2:
-        // the second while loop
-        break;
+            while (win == 0 && tie == 0) {
+                printf("player %d's turn\n", turn);
+                printf("enter the column number to add a piece\n");
+                colChoice = readInt();
+                while (colChoice < 1 || colChoice > cols || boardColsFilled[colChoice-1] < 0) {
+                    printf("invalid or full column, choose another: ");
+                    colChoice = readInt();
+                }
+                dropPiece(cols, board, boardColsFilled, colChoice, &turn);
+                moves++;
+                printBoard(rows, cols, board);
+                if (checkWin(rows, cols, board, P1)) {
+                    printf("player 1 wins!\n");
+                    win = 1;
+                } else if (checkWin(rows, cols, board, P2)) {
+                    printf("player 2 wins!\n");
+                    win = 1;
+                } else if(checkTie(rows, cols, moves)) {
+                    printf("it's a tie!\n");
+                    tie = 1;
+                }
+
+            };
+            break;
+        case 1:
+            // the second while loop
+            break;
     }
 
     // AAAGGGHHHHHHHHHHHHHHHHHH

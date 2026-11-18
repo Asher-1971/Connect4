@@ -5,10 +5,17 @@
 #define P1 'X'
 #define P2 'O'
 
+
+// start.c functions
 void printBoard(int rows, int cols, char board[][cols]);
 void initBoard(int rows, int cols, char board[][cols]);
 void initBoardColsFilled(int rows, int cols, int boardColsFilled[]);
 void dropPiece(int cols, char board[][cols], int boardColsFilled[], int colChoice, int *turn);
 int readInt(void);
+
+// win.c functions
+int countInLine(int rows, int cols, char board[][cols], int r, int c, int dr, int dc, char piece);
+int checkWin(int rows, int cols, char board[][cols], char piece);
+int checkTie(int rows, int cols, int moves);
 
 #endif
