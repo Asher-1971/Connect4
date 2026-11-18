@@ -7,6 +7,8 @@
 
 void printBoard(int rows, int cols, char board[][cols]);
 void initBoard(int rows, int cols, char board[][cols]);
-void initBoardColsFilled(int rows, int boardColsFilled[rows]);
+void initBoardColsFilled(int rows, int cols, int boardColsFilled[]);
+void dropPiece(int cols, char board[][cols], int boardColsFilled[], int colChoice, int *turn);
+int readInt(void);
 
 #endif
