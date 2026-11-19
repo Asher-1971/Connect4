@@ -54,13 +54,14 @@ int readInt(void){
     return x;
 }
 
+int validateBoardSize(int n){
+    return n >= MIN_SIZE && n <= MAX_SIZE;
+}
 int main(void){
 
     printf("choose what board size you want to play with\n");
-    printf("1. Small 5x4\n");
-    printf("2. Medium 6x5\n");
-    printf("3. Classic 6x7\n");
-    printf("4. Large 10x7\n");
+    printf("1. Classic 6x7\n");
+    printf("2. custom size\n");
 
     int rows, cols;
 
@@ -69,7 +70,7 @@ int main(void){
     choice = readInt();
 
     // validate choice
-    while (choice < 1 || choice > 4) {
+    while (choice < 1 || choice > 2) {
         printf("invalid choice\n");
         printf("enter your choice: ");
         choice = readInt();
@@ -78,24 +79,24 @@ int main(void){
     // process choice
     switch(choice) {
         case 1:
-            // initialize 5x4 board
-            rows = 5;
-            cols = 4;
-            break;
-        case 2:
-            // initialize 6x5 board
-            rows = 6;
-            cols = 5;
-            break;
-        case 3:
             // initialize 6x7 board
             rows = 6;
             cols = 7;
             break;
-        case 4:
-            // initialize 10x7 board
-            rows = 10;
-            cols = 7;
+        case 2:
+            // initialize custom size board
+            printf("rows: ");
+            rows = readInt();
+            while (!validateBoardSize(rows)) {
+                printf("invalid, enter rows (%d-%d): ", MIN_SIZE, MAX_SIZE);
+                rows = readInt();
+        }
+            printf("columns: ");
+            cols = readInt();
+            while (!validateBoardSize(cols)) {
+                printf("invalid, enter columns (%d-%d): ", MIN_SIZE, MAX_SIZE);
+                cols = readInt();
+            }
             break;
     }
 

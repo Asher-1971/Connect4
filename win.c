@@ -29,7 +29,3 @@ int checkWin(int rows, int cols, char board[][cols], char piece){
     }
     return 0;
 }
-
-int checkTie(int rows, int cols, int moves){
-    return moves == rows * cols;
-}
