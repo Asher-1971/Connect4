@@ -53,7 +53,7 @@ else if(*gameChoice==2)
 }
 
 //uiFunction1
-void uiHumanvsHuman(int rows, int cols, char board[rows][cols])
+void uiHumanvsHuman(GameState *game)
 {
   char p1 = 'X';
   char p2 = 'O';
@@ -69,19 +69,32 @@ void uiHumanvsHuman(int rows, int cols, char board[rows][cols])
     printf("player %c turn:\n",currentPiece);
 
     //ameera win/draw check
-    if(checkWin(rows,cols,board,currentPiece)==1)
+    if(checkWin(GameState *game)==1)
     {
       //printboard(rows,cols,board)
       printf("Player %c wins!\n",currentPiece);
       gameOver=1;
       break;
     }
-    if(checkDraw(rows,cols,board)==1)
+    if(checkTie(GameState *game)==1)
     {
       //printboard(rows,cols,board)
       printf("Its a draw!\n");
       gameOver=1;
       break;
+    }
+
+    printf("Enter column number or 0 to save and quit the game:\n");
+    scanf("%d", contChoice);
+    if(contChoice==0)
+    {
+      //call savegame() function
+      printf("Game saved! Exiting...\n");
+      gameOver=1;
+    }
+    if(contChoice!=0)
+    {
+      
     }
 
     //checking if user wants to continue or not
@@ -107,7 +120,7 @@ void uiHumanvsHuman(int rows, int cols, char board[rows][cols])
 }
 
 //uifunction2
-void uiHumanvsAI(int rows, int cols, char board[rows][cols], int aiDifficulty)
+void uiHumanvsAI(GameState *game)
 {
   char humanPiece='X';
   char aiPiece='O';
@@ -130,7 +143,7 @@ void uiHumanvsAI(int rows, int cols, char board[rows][cols], int aiDifficulty)
     }
 
     //ameera win/draw check
-    if(checkWin(rows,cols,board,currentPiece)==1)
+    if(checkWin(GameState *game)==1)
     {
       //printboard(rows,cols,board)
       if(currentPiece==humanPiece)
@@ -144,7 +157,7 @@ void uiHumanvsAI(int rows, int cols, char board[rows][cols], int aiDifficulty)
       gameOver=1;
       break;
     }
-    if(checkDraw(rows,cols,board)==1)
+    if(checkDraw(GameState *game)==1)
     {
       //printboard(rows,cols,board)
       printf("Its a draw!\n");
