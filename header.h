@@ -32,7 +32,7 @@ int useBomb(int col, int player);
 int useAnvil(int col, int player);
 int undoMove(void);
 
-int checkWin(int player);
+
 int isBoardFull(void);
 
 int getAiMove(int lvl, int player);
