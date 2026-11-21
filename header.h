@@ -7,17 +7,31 @@
 #define MIN_SIZE 4
 #define MAX_SIZE 20
 
+typedef struct {
+    int rows;
+    int cols;
+    char board[MAX_SIZE][MAX_SIZE];
+    int boardColsFilled[MAX_SIZE];
+    int choice;
+    int aiOrNot;
+    int win;
+    int tie;
+    int moves;
+    int colChoice;
+    int turn;
+} GameState;
+
 // functions for start.c
-void printBoard(int rows, int cols, char board[][cols]);
-void initBoard(int rows, int cols, char board[][cols]);
-void initBoardColsFilled(int rows, int cols, int boardColsFilled[]);
-void dropPiece(int cols, char board[][cols], int boardColsFilled[], int colChoice, int *turn);
+void printBoard(GameState *game);
+void initBoard(GameState *game);
+void initBoardColsFilled(GameState *game);
+void dropPiece(GameState *game);
 int readInt(void);
 int validateBoardSize(int n);
 
 // fucntions for win.c
-int countInLine(int rows, int cols, char board[][cols], int r, int c, int dr, int dc, char piece);
-int checkWin(int rows, int cols, char board[][cols], char piece);
-int checkTie(int rows, int cols, int moves);
+int countInLine(GameState *game, int r, int c, int dr, int dc, char piece);
+int checkWin(GameState *game, char piece);
+int checkTie(GameState *game);
 
 #endif
