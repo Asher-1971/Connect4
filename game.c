@@ -8,14 +8,30 @@
 #define DEFAULT_ROWS 6
 #define DEFAULT_COLS 7
 
-void clearScreen()
+void wait_for_enter(void)
 {
-  printf("\033[3J\033[2J\033[H");
-  fflush(stdout);
+    int c;
+    /* Clear any leftover characters up to the current newline */
+    while ((c = getchar()) != '\n' && c != EOF) { }
 }
 
-void gameInputs(int *gameChoice, int *gameMode, int *aiDifficulty, int *rows, int *cols)
+void clearScreen(void)
 {
+    printf("Press Enter to continue...");
+    fflush(stdout);
+
+    wait_for_enter();
+
+    /* Clear visible screen + scrollback buffer, reset cursor */
+    printf("\033[3J\033[2J\033[H");
+    fflush(stdout);
+}
+
+void gameInputs(GameState *game)
+{
+  int *gameChoice;
+  int *gameMode;
+  int aiDifficulty;
 
 printf("Connect 4 Game\n");
 printf("1.New Game\n");
@@ -58,12 +74,12 @@ void uiHumanvsHuman(GameState *game)
   char p1 = 'X';
   char p2 = 'O';
   char currentPiece=p1;
-  char contChoice[16];
+  int contChoice;
   int gameOver=0;
 
   while(!gameOver)
   {
-    //ameera printBoard function
+    printBoard(GameState *game);
 
     //input function
     printf("player %c turn:\n",currentPiece);
@@ -84,6 +100,7 @@ void uiHumanvsHuman(GameState *game)
       break;
     }
 
+    //checking if user wants to continue or not
     printf("Enter column number or 0 to save and quit the game:\n");
     scanf("%d", contChoice);
     if(contChoice==0)
@@ -94,27 +111,11 @@ void uiHumanvsHuman(GameState *game)
     }
     if(contChoice!=0)
     {
-      
+      //input function
     }
 
-    //checking if user wants to continue or not
-    printf("Enter 'exit' to save and quit, or anything else to continue: ");
-    if(scanf("%15s", contChoice)!=1)
-    {
-      break;
-    }
-
-    if(strcmp(contChoice, "exit")==0 || strcmp(contChoice, "EXIT")==0)
-    {
-      //call savegame() function
-      printf("Game saved! Exiting...\n");
-      gameOver=1;
-    }
-    else
-    {
-      currentPiece = (currentPiece==p1) ? p2 : p1;
-      clearScreen();
-    }
+    clearScreen();
+    
   }
 
 }
@@ -125,12 +126,12 @@ void uiHumanvsAI(GameState *game)
   char humanPiece='X';
   char aiPiece='O';
   char currentPiece=humanPiece;
-  char contChoice[16];
+  int contChoice;
   int gameOver=0;
 
   while(!gameOver)
   {
-    //ameera printBoard function
+    printBoard(GameState *game);
 
     //input function
     if(currentPiece==humanPiece)
@@ -165,55 +166,24 @@ void uiHumanvsAI(GameState *game)
       break;
     }
 
-    //checking if user wants to continue or not
-    printf("Enter 'exit' to save and quit, or anything else to continue: ");
-    if(scanf("%15s", contChoice)!=1)
-    {
-      break;
-    }
-
-    if(strcmp(contChoice, "exit")==0 || strcmp(contChoice, "EXIT")==0)
+    printf("Enter column number or 0 to save and quit the game:\n");
+    scanf("%d", contChoice);
+    if(contChoice==0)
     {
       //call savegame() function
       printf("Game saved! Exiting...\n");
       gameOver=1;
     }
-    else
+    if(contChoice!=0)
     {
-      currentPiece = (currentPiece==humanPiece) ? aiPiece : humanPiece;
-      clearScreen();
+      //input function
     }
-  }
 
+    clearScreen();
+}
 }
 
-int main(void)
+int main()
 {
-    int gameChoice = 0;
-    int gameMode = 0;
-    int aiDifficulty = 1;
-    int rows = DEFAULT_ROWS;
-    int cols = DEFAULT_COLS;
-
-    printf("\033[?1049h\033[3J\033[2J\033[H");
-    fflush(stdout);
-
-    gameInputs(&gameChoice, &gameMode, &aiDifficulty, &rows, &cols);
-
-    char board[rows][cols];
-    memset(board, ' ', sizeof(board));
-
-    if (gameMode == 1)
-    {
-        uiHumanVsHuman(rows, cols, board);
-    }
-    else if (gameMode == 2)
-    {
-        uiHumanVsAI(rows, cols, board, aiDifficulty);
-    }
-
-    printf("\033[?1049l");
-    fflush(stdout);
-
-    return 0;
+  
 }
