@@ -10,6 +10,7 @@
 typedef struct {
     int rows;
     int cols;
+    int winLength;
     char board[MAX_SIZE][MAX_SIZE];
     int boardColsFilled[MAX_SIZE];
     int choice;
@@ -21,15 +22,16 @@ typedef struct {
     int turn;
 } GameState;
 
-// functions for start.c
+/* Functions for start.c */
 void printBoard(GameState *game);
 void initBoard(GameState *game);
 void initBoardColsFilled(GameState *game);
-void dropPiece(GameState *game);
+int dropPiece(GameState *game);
 int readInt(void);
 int validateBoardSize(int n);
+int mainstart(void);
 
-// fucntions for win.c
+/* Functions for win.c */
 int countInLine(GameState *game, int r, int c, int dr, int dc, char piece);
 int checkWin(GameState *game, char piece);
 int checkTie(GameState *game);

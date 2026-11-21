@@ -15,6 +15,7 @@
 extern "C" {
 #endif
 
+/* Board & Compile-Time Feature Configuration */
 #define MAX_DIM 20
 #define ENABLE_POWERUPS 0  /* Flip to 1 in v2 to enable Bomb & Anvil moves */
 
@@ -30,7 +31,11 @@ typedef struct {
     MoveType type;
 } Move;
 
-
+/*
+ * Flat, pointer-free Copy-Make state (~428 bytes).
+ * Board convention: row 0 = bottom, row (rows - 1) = top.
+ * Cell values: 0 = empty, 1 = Player 1, 2 = Player 2.
+ */
 typedef struct AIState {
     uint8_t board[MAX_DIM][MAX_DIM];
     int rows;
@@ -57,15 +62,24 @@ typedef struct {
 /* Core AI Engine API */
 int generate_moves(const AIGameState *s, Move moves[MAX_DIM * 3]);
 void apply_gravity(AIGameState *s);
+bool try_apply_move(const AIGameState *s, Move m, AIGameState *out);
 AIGameState apply_move(AIGameState s, Move m);
 int check_winner(const AIGameState *s);
 int evaluate_board(const AIGameState *s);
 int negamax(const AIGameState *s, int depth, int alpha, int beta, SearchContext *ctx);
 Move find_best_move(const AIGameState *root, int time_budget_ms);
 
-
+/*
+ * Seamless Bridge for Frontend (header.h / start.c):
+ * Converts top-down char board ('.', 'X', 'O') to bottom-up AIGameState.
+ * Returns a 1-indexed column (1..cols), or -1 if no legal move exists.
+ */
 #ifdef HEADER_H
 static inline int getBestMove(const GameState *fe, int win_length, int time_budget_ms) {
+    if (!fe || fe->rows <= 0 || fe->rows > MAX_DIM || fe->cols <= 0 || fe->cols > MAX_DIM) {
+        return -1;
+    }
+
     AIGameState ai = {0};
     ai.rows = fe->rows;
     ai.cols = fe->cols;
@@ -88,7 +102,10 @@ static inline int getBestMove(const GameState *fe, int win_length, int time_budg
     }
 
     Move best = find_best_move(&ai, time_budget_ms);
-    return (best.col >= 0) ? (best.col + 1) : 1;
+    if (best.col < 0 || best.col >= fe->cols) {
+        return -1;
+    }
+    return best.col + 1;
 }
 #endif
 

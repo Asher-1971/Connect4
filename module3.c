@@ -49,12 +49,19 @@ static void build_center_out_order(int cols, int order[MAX_DIM]) {
  * full-column checks for v2 MOVE_ANVIL.
  */
 int generate_moves(const AIGameState *s, Move moves[MAX_DIM * 3]) {
+    if (!s || s->rows <= 0 || s->rows > MAX_DIM || s->cols <= 0 || s->cols > MAX_DIM) {
+        return 0;
+    }
+
     int col_order[MAX_DIM];
     build_center_out_order(s->cols, col_order);
 
     int count = 0;
 #if ENABLE_POWERUPS
     int p = s->current_player;
+    if (p != 1 && p != 2) {
+        return 0;
+    }
 #endif
 
     for (int i = 0; i < s->cols; i++) {
@@ -86,6 +93,10 @@ int generate_moves(const AIGameState *s, Move moves[MAX_DIM * 3]) {
 
 /* Compacts every column downward (row 0 = bottom) after Bomb explosions */
 void apply_gravity(AIGameState *s) {
+    if (!s || s->rows <= 0 || s->rows > MAX_DIM || s->cols <= 0 || s->cols > MAX_DIM) {
+        return;
+    }
+
     for (int c = 0; c < s->cols; c++) {
         int write_row = 0;
         for (int r = 0; r < s->rows; r++) {
@@ -99,51 +110,92 @@ void apply_gravity(AIGameState *s) {
     }
 }
 
-/* Copy-Make state transition: takes state by value and returns mutated copy */
-AIGameState apply_move(AIGameState s, Move m) {
-    int p = s.current_player;
+/*
+ * Validates and applies a move into *out.
+ * Returns true if the move was legal and applied; false if invalid/full (state unchanged).
+ */
+bool try_apply_move(const AIGameState *s, Move m, AIGameState *out) {
+    if (!s || !out) {
+        return false;
+    }
+    if (s->rows <= 0 || s->rows > MAX_DIM || s->cols <= 0 || s->cols > MAX_DIM) {
+        return false;
+    }
+    if (m.col < 0 || m.col >= s->cols) {
+        return false;
+    }
+
+    int p = s->current_player;
+    if (p != 1 && p != 2) {
+        return false;
+    }
+
+    AIGameState next = *s;
+    bool applied = false;
 
     if (m.type == MOVE_NORMAL) {
-        for (int r = 0; r < s.rows; r++) {
-            if (s.board[r][m.col] == 0) {
-                s.board[r][m.col] = (uint8_t)p;
+        for (int r = 0; r < next.rows; r++) {
+            if (next.board[r][m.col] == 0) {
+                next.board[r][m.col] = (uint8_t)p;
+                applied = true;
                 break;
             }
         }
     }
 #if ENABLE_POWERUPS
     else if (m.type == MOVE_BOMB) {
-        int land_row = -1;
-        for (int r = 0; r < s.rows; r++) {
-            if (s.board[r][m.col] == 0) {
-                land_row = r;
-                break;
-            }
-        }
-        if (land_row >= 0) {
-            int r_min = (land_row - 1 < 0) ? 0 : (land_row - 1);
-            int r_max = (land_row + 1 >= s.rows) ? (s.rows - 1) : (land_row + 1);
-            int c_min = (m.col - 1 < 0) ? 0 : (m.col - 1);
-            int c_max = (m.col + 1 >= s.cols) ? (s.cols - 1) : (m.col + 1);
-
-            for (int r = r_min; r <= r_max; r++) {
-                for (int c = c_min; c <= c_max; c++) {
-                    s.board[r][c] = 0;
+        if (!next.bomb_used[p]) {
+            int land_row = -1;
+            for (int r = 0; r < next.rows; r++) {
+                if (next.board[r][m.col] == 0) {
+                    land_row = r;
+                    break;
                 }
             }
-            s.bomb_used[p] = true;
-            apply_gravity(&s);
+            if (land_row >= 0) {
+                int r_min = (land_row - 1 < 0) ? 0 : (land_row - 1);
+                int r_max = (land_row + 1 >= next.rows) ? (next.rows - 1) : (land_row + 1);
+                int c_min = (m.col - 1 < 0) ? 0 : (m.col - 1);
+                int c_max = (m.col + 1 >= next.cols) ? (next.cols - 1) : (m.col + 1);
+
+                for (int r = r_min; r <= r_max; r++) {
+                    for (int c = c_min; c <= c_max; c++) {
+                        next.board[r][c] = 0;
+                    }
+                }
+                next.bomb_used[p] = true;
+                apply_gravity(&next);
+                applied = true;
+            }
         }
     } else if (m.type == MOVE_ANVIL) {
-        for (int r = 0; r < s.rows; r++) {
-            s.board[r][m.col] = 0;
+        if (!next.anvil_used[p]) {
+            for (int r = 0; r < next.rows; r++) {
+                next.board[r][m.col] = 0;
+            }
+            next.anvil_used[p] = true;
+            applied = true;
         }
-        s.anvil_used[p] = true;
     }
 #endif
 
-    s.move_count++;
-    s.current_player = (p == 1) ? 2 : 1;
+    if (!applied) {
+        *out = *s;
+        return false;
+    }
+
+    next.move_count++;
+    next.current_player = (p == 1) ? 2 : 1;
+    *out = next;
+    return true;
+}
+
+/* Copy-Make state transition: returns unchanged state if move is illegal/full */
+AIGameState apply_move(AIGameState s, Move m) {
+    AIGameState next;
+    if (try_apply_move(&s, m, &next)) {
+        return next;
+    }
     return s;
 }
 
@@ -158,6 +210,10 @@ int check_winner(const AIGameState *s) {
         {1,  1},  /* Diagonal up-right */
         {1, -1}   /* Diagonal up-left */
     };
+
+    if (!s || s->win_length <= 0) {
+        return 0;
+    }
 
     bool p1_won = false;
     bool p2_won = false;
@@ -265,6 +321,10 @@ int evaluate_board(const AIGameState *s) {
         {1, -1}
     };
 
+    if (!s || s->win_length <= 0) {
+        return 0;
+    }
+
     int me = s->current_player;
     int opp = (me == 1) ? 2 : 1;
     int K = s->win_length;
@@ -350,12 +410,15 @@ int negamax(const AIGameState *s, int depth, int alpha, int beta, SearchContext 
     Move moves[MAX_DIM * 3];
     int num_moves = generate_moves(s, moves);
     if (num_moves == 0) {
-        return 0; 
+        return 0; /* Full board draw */
     }
 
     int best_val = -INF_SCORE;
     for (int i = 0; i < num_moves; i++) {
-        AIGameState next = apply_move(*s, moves[i]);
+        AIGameState next;
+        if (!try_apply_move(s, moves[i], &next)) {
+            continue;
+        }
         int val = -negamax(&next, depth - 1, -beta, -alpha, ctx);
 
         if (ctx->timed_out) {
@@ -369,7 +432,7 @@ int negamax(const AIGameState *s, int depth, int alpha, int beta, SearchContext 
             alpha = val;
         }
         if (alpha >= beta) {
-            break; 
+            break; /* Beta cutoff */
         }
     }
 
@@ -390,12 +453,19 @@ static void promote_pv_move(Move moves[MAX_DIM * 3], int num_moves, Move pv) {
     }
 }
 
+/*
+ * Iterative Deepening Negamax root driver with wall-clock time budget.
+ * Discards incomplete depths on timeout and returns the last fully completed PV move.
+ */
 Move find_best_move(const AIGameState *root, int time_budget_ms) {
+    Move invalid = { -1, MOVE_NORMAL };
+    if (!root) {
+        return invalid;
+    }
+
     Move root_moves[MAX_DIM * 3];
     int num_moves = generate_moves(root, root_moves);
-
     if (num_moves == 0) {
-        Move invalid = { -1, MOVE_NORMAL };
         return invalid;
     }
 
@@ -427,7 +497,10 @@ Move find_best_move(const AIGameState *root, int time_budget_ms) {
         Move iter_best_move = root_moves[0];
 
         for (int i = 0; i < num_moves; i++) {
-            AIGameState next = apply_move(*root, root_moves[i]);
+            AIGameState next;
+            if (!try_apply_move(root, root_moves[i], &next)) {
+                continue;
+            }
             int score = -negamax(&next, depth - 1, -beta, -alpha, &ctx);
 
             if (ctx.timed_out) {
