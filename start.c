@@ -61,7 +61,7 @@ int readInt(void){
 int validateBoardSize(int n){
     return n >= MIN_SIZE && n <= MAX_SIZE;
 }
-int main(void){
+int mainstart(void){
     GameState game = {0};
 
     printf("choose what board size you want to play with\n");
