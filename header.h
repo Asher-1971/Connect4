@@ -1,47 +1,37 @@
 #ifndef HEADER_H
 #define HEADER_H
 
-#include<stdio.h>
-#include<stdlib.h>
-#include<string.h>
-#include<time.h>
-
-#define NAME_LEN 20
+#define EMPTY '.'
+#define P1 'X'
+#define P2 'O'
+#define MIN_SIZE 4
 #define MAX_SIZE 20
-#define SAVE_FILE  "save_game.dat"
 
-#define TWO_PLAYER 1
-#define VS_COMPUTER 2
-#define EASY 1
-#define MEDIUM 2
+typedef struct {
+    int rows;
+    int cols;
+    char board[MAX_SIZE][MAX_SIZE];
+    int boardColsFilled[MAX_SIZE];
+    int choice;
+    int aiOrNot;
+    int win;
+    int tie;
+    int moves;
+    int colChoice;
+    int turn;
+} GameState;
 
-extern int **board;
-extern int rows,cols,winLen;
-extern int mode;
-extern int level;
-extern int current;
-extern int bombs[3], anvils[3];
-extern char playerName[3][NAME_LEN+1];
-extern char symbol[3];
+// functions for start.c
+void printBoard(GameState *game);
+void initBoard(GameState *game);
+void initBoardColsFilled(GameState *game);
+void dropPiece(GameState *game);
+int readInt(void);
+int validateBoardSize(int n);
 
-void createBoard(int r, int c);
-void freeBoard(void);
-void printBoard(void);
-int dropDisc(int col, int player);
-int useBomb(int col, int player);
-int useAnvil(int col, int player);
-int undoMove(void);
-
-
-int isBoardFull(void);
-
-int getAiMove(int lvl, int player);
-
-//my functions
-void mainMenu(void);
-void playgame(void);
-void saveGame(void);
-void loadGame(void);
-
+// fucntions for win.c
+int countInLine(GameState *game, int r, int c, int dr, int dc, char piece);
+int checkWin(GameState *game, char piece);
+int checkTie(GameState *game);
 
 #endif
