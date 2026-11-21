@@ -1,4 +1,4 @@
-#include <stdio.h>
+
 #include "header.h"
 
 // counts how many of 'piece' appear in a row starting at (r, c),
