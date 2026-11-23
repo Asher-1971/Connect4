@@ -75,6 +75,11 @@ bool validateGameState(const GameState *s) {
     if (piece_count != s->piece_count) {
         return false;
     }
+#if !ENABLE_POWERUPS
+    if (s->move_count != s->piece_count) {
+        return false;
+    }
+#endif
     if (p1_count < p2_count || p1_count - p2_count > 1) {
         return false;
     }
@@ -172,6 +177,15 @@ void apply_gravity(GameState *s) {
             s->board[r][c] = 0;
         }
     }
+    int piece_count = 0;
+    for (int r = 0; r < s->rows; r++) {
+        for (int c = 0; c < s->cols; c++) {
+            if (s->board[r][c] != 0) {
+                piece_count++;
+            }
+        }
+    }
+    s->piece_count = piece_count;
 }
 
 /*

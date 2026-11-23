@@ -41,6 +41,20 @@ int main(void) {
     invalid_dimensions.colChoice = 1;
     assert(!dropPiece(&invalid_dimensions));
 
+    GameState reset = {0};
+    reset.rows = 6;
+    reset.cols = 7;
+    reset.winLength = 4;
+    reset.win = 1;
+    reset.tie = 1;
+    reset.colChoice = 7;
+    reset.move_count = 9;
+    reset.piece_count = 9;
+    initBoard(&reset);
+    assert(reset.win == 0);
+    assert(reset.tie == 0);
+    assert(reset.colChoice == 0);
+
     GameState game = {0};
     game.rows = 6;
     game.cols = 7;

@@ -37,6 +37,9 @@ void initBoard(GameState *game){
     game->piece_count = 0;
     game->move_count = 0;
     game->current_player = PLAYER_ONE;
+    game->win = 0;
+    game->tie = 0;
+    game->colChoice = 0;
     for (int i = 0; i <= MAX_PLAYERS; i++) {
         game->bomb_used[i] = false;
         game->anvil_used[i] = false;
@@ -47,6 +50,9 @@ int dropPiece(GameState *game){
     if (!game || game->rows < MIN_SIZE || game->rows > MAX_SIZE ||
         game->cols < MIN_SIZE || game->cols > MAX_SIZE ||
         game->colChoice < 1 || game->colChoice > game->cols) {
+        return 0;
+    }
+    if (!validateGameState(game) || check_winner(game) != 0) {
         return 0;
     }
 

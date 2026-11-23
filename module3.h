@@ -4,12 +4,7 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-/* Auto-include frontend header if present so include order never matters */
-#if defined(__has_include)
-#  if __has_include("header.h")
-#    include "header.h"
-#  endif
-#endif
+#include "header.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -18,20 +13,6 @@ extern "C" {
 /* Board & Compile-Time Feature Configuration */
 #define MAX_DIM 20
 #define ENABLE_POWERUPS 0  /* Flip to 1 in v2 to enable Bomb & Anvil moves */
-
-/* Move abstractions are shared with the canonical frontend GameState. */
-#ifndef HEADER_H
-typedef enum {
-    MOVE_NORMAL = 0,
-    MOVE_BOMB = 1,
-    MOVE_ANVIL = 2
-} MoveType;
-
-typedef struct {
-    int col;
-    MoveType type;
-} Move;
-#endif
 
 /* Stack-allocated search telemetry & re-entrant timeout budget */
 typedef struct {
