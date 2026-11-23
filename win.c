@@ -40,5 +40,15 @@ int checkTie(GameState *game) {
         game->cols < 1 || game->cols > MAX_SIZE) {
         return 0;
     }
-    return game->moves >= game->rows * game->cols;
+    if (checkWin(game, P1) || checkWin(game, P2)) {
+        return 0;
+    }
+    for (int r = 0; r < game->rows; r++) {
+        for (int c = 0; c < game->cols; c++) {
+            if (game->board[r][c] == EMPTY) {
+                return 0;
+            }
+        }
+    }
+    return 1;
 }

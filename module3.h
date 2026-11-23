@@ -110,7 +110,7 @@ static inline int getBestMove(const GameState *fe, int win_length, int time_budg
             }
         }
     }
-    if (pieces > fe->moves) {
+    if (pieces != fe->moves) {
         return -1;
     }
 

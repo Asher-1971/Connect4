@@ -45,7 +45,9 @@ static bool valid_state(const AIGameState *s) {
         return false;
     }
 
-    int pieces = 0;
+    int piece_count = 0;
+    int p1_count = 0;
+    int p2_count = 0;
     for (int c = 0; c < s->cols; c++) {
         bool seen_empty = false;
         for (int r = 0; r < s->rows; r++) {
@@ -59,11 +61,26 @@ static bool valid_state(const AIGameState *s) {
                 if (seen_empty) {
                     return false;
                 }
-                pieces++;
+                piece_count++;
+                if (cell == 1) {
+                    p1_count++;
+                } else {
+                    p2_count++;
+                }
             }
         }
     }
-    return pieces <= s->move_count;
+    if (piece_count != s->move_count) {
+        return false;
+    }
+    if (p1_count < p2_count || p1_count - p2_count > 1) {
+        return false;
+    }
+    if ((p1_count == p2_count && s->current_player != 1) ||
+        (p1_count == p2_count + 1 && s->current_player != 2)) {
+        return false;
+    }
+    return true;
 }
 
 /* Builds center-out column ordering: e.g., for cols=7 -> [3, 2, 4, 1, 5, 0, 6] */
@@ -164,6 +181,10 @@ bool try_apply_move(const AIGameState *s, Move m, AIGameState *out) {
         return false;
     }
     if (!valid_state(s)) {
+        return false;
+    }
+    if (check_winner(s) != 0) {
+        *out = *s;
         return false;
     }
     if (m.col < 0 || m.col >= s->cols) {

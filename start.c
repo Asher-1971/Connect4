@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include "header.h"
+#include "module3.h"
 
 // functions
 void printBoard(GameState *game){
@@ -38,6 +39,9 @@ int dropPiece(GameState *game){
     int col = game->colChoice - 1;
     int row = game->boardColsFilled[col];
     if (row < 0 || row >= game->rows || game->turn < 1 || game->turn > 2) {
+        return 0;
+    }
+    if (game->board[row][col] != EMPTY) {
         return 0;
     }
 
@@ -115,6 +119,16 @@ int mainstart(void){
             break;
     }
 
+    printf("win length (4-Connect 4, 5-Connect 5): ");
+    game.winLength = readInt();
+    if (game.winLength == -1) return 0;
+    while (game.winLength < 4 || game.winLength > 5 ||
+           (game.winLength > game.rows && game.winLength > game.cols)) {
+        printf("invalid win length, enter 4 or 5: ");
+        game.winLength = readInt();
+        if (game.winLength == -1) return 0;
+    }
+
     printf("1. AI\n2. Human\nchoice: ");
     game.aiOrNot = readInt();
     if (game.aiOrNot == -1) return 0;
@@ -161,7 +175,44 @@ int mainstart(void){
             }
             break;
         case 1:
-            printf("AI mode is not implemented yet.\n");
+            while (game.win == 0 && game.tie == 0) {
+                if (game.turn == 1) {
+                    printf("your turn\n");
+                    printf("enter the column number to add a piece\n");
+                    game.colChoice = readInt();
+                    if (game.colChoice == -1) return 0;
+                    while (game.colChoice < 1 || game.colChoice > game.cols ||
+                           game.boardColsFilled[game.colChoice - 1] < 0) {
+                        printf("invalid or full column, choose another: ");
+                        game.colChoice = readInt();
+                        if (game.colChoice == -1) return 0;
+                    }
+                } else {
+                    printf("AI is choosing a column...\n");
+                    game.colChoice = getBestMove(&game, game.winLength, 100);
+                    if (game.colChoice < 1 || game.colChoice > game.cols ||
+                        game.boardColsFilled[game.colChoice - 1] < 0) {
+                        break;
+                    }
+                }
+
+                if (!dropPiece(&game)) {
+                    break;
+                }
+                game.moves++;
+                printBoard(&game);
+
+                if (checkWin(&game, P1)) {
+                    printf("player 1 wins!\n");
+                    game.win = 1;
+                } else if (checkWin(&game, P2)) {
+                    printf("AI wins!\n");
+                    game.win = 1;
+                } else if (checkTie(&game)) {
+                    printf("it's a tie!\n");
+                    game.tie = 1;
+                }
+            }
             break;
     }
 
