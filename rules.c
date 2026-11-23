@@ -59,16 +59,21 @@ bool rules_validate_state(const GameState *state) {
 bool rules_is_valid_move(const GameState *state, Move move) {
     if (!rules_validate_state(state) ||
         move.col < 0 || move.col >= state->cols ||
-        state->board[state->rows - 1][move.col] != EMPTY ||
         rules_check_winner(state) != 0) {
         return false;
     }
 #if ENABLE_POWERUPS
-    if (move.type == MOVE_NORMAL) return true;
-    if (move.type == MOVE_BOMB) return !state->bomb_used[state->current_player];
+    if (move.type == MOVE_NORMAL) {
+        return state->board[state->rows - 1][move.col] == EMPTY;
+    }
+    if (move.type == MOVE_BOMB) {
+        return state->board[state->rows - 1][move.col] == EMPTY &&
+               !state->bomb_used[state->current_player];
+    }
     if (move.type == MOVE_ANVIL) return !state->anvil_used[state->current_player];
     return false;
 #else
+    if (state->board[state->rows - 1][move.col] != EMPTY) return false;
     return move.type == MOVE_NORMAL;
 #endif
 }

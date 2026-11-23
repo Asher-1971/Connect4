@@ -5,18 +5,7 @@
 #include "game.h"
 #include "module3.h"
 #include "rules.h"
-
-void wait_for_enter(void)
-{
-    int c;
-    while ((c = getchar()) != '\n' && c != EOF) {}
-}
-
-void clearScreen(void)
-{
-    printf("\033[3J\033[2J\033[H");
-    fflush(stdout);
-}
+#include "terminal.h"
 
 int saveGame(GameState *game)
 {
@@ -43,13 +32,13 @@ void gameInputs(GameState *game, GameConfig *config)
     printf("2. Resume Game\n");
     printf("Enter your choice: ");
 
-    config->menu_choice = readInt();
+    config->menu_choice = terminal_read_int();
     while (config->menu_choice < 1 || config->menu_choice > 2) {
         if (config->menu_choice == -1) {
             return;
         }
         printf("Enter 1 or 2: ");
-        config->menu_choice = readInt();
+        config->menu_choice = terminal_read_int();
     }
 
     if (config->menu_choice == 2) {
@@ -64,13 +53,13 @@ void gameInputs(GameState *game, GameConfig *config)
     printf("2. Custom size\n");
     printf("Enter your choice: ");
 
-    int sizeChoice = readInt();
+    int sizeChoice = terminal_read_int();
     while (sizeChoice < 1 || sizeChoice > 2) {
         if (sizeChoice == -1) {
             return;
         }
         printf("Enter 1 or 2: ");
-        sizeChoice = readInt();
+        sizeChoice = terminal_read_int();
     }
 
     if (sizeChoice == 1) {
@@ -78,35 +67,35 @@ void gameInputs(GameState *game, GameConfig *config)
         game->cols = 7;
     } else {
         printf("Rows (%d-%d): ", MIN_SIZE, MAX_SIZE);
-        game->rows = readInt();
-        while (!validateBoardSize(game->rows)) {
+        game->rows = terminal_read_int();
+        while (!terminal_validate_board_size(game->rows)) {
             if (game->rows == -1) {
                 return;
             }
             printf("Invalid rows. Enter %d-%d: ", MIN_SIZE, MAX_SIZE);
-            game->rows = readInt();
+            game->rows = terminal_read_int();
         }
 
         printf("Columns (%d-%d): ", MIN_SIZE, MAX_SIZE);
-        game->cols = readInt();
-        while (!validateBoardSize(game->cols)) {
+        game->cols = terminal_read_int();
+        while (!terminal_validate_board_size(game->cols)) {
             if (game->cols == -1) {
                 return;
             }
             printf("Invalid columns. Enter %d-%d: ", MIN_SIZE, MAX_SIZE);
-            game->cols = readInt();
+            game->cols = terminal_read_int();
         }
     }
 
     printf("Win length (4 or 5): ");
-    game->win_length = readInt();
+    game->win_length = terminal_read_int();
     while (game->win_length < 4 || game->win_length > 5 ||
            (game->win_length > game->rows && game->win_length > game->cols)) {
         if (game->win_length == -1) {
             return;
         }
         printf("Invalid win length. Enter 4 or 5: ");
-        game->win_length = readInt();
+        game->win_length = terminal_read_int();
     }
 
     printf("\nChoose game mode:\n");
@@ -114,13 +103,13 @@ void gameInputs(GameState *game, GameConfig *config)
     printf("2. Human vs AI\n");
     printf("Enter your choice: ");
 
-    config->ai_mode = readInt();
+    config->ai_mode = terminal_read_int();
     while (config->ai_mode < 1 || config->ai_mode > 2) {
         if (config->ai_mode == -1) {
             return;
         }
         printf("Enter 1 or 2: ");
-        config->ai_mode = readInt();
+        config->ai_mode = terminal_read_int();
     }
 
     if (config->ai_mode == 2) {
@@ -130,13 +119,13 @@ void gameInputs(GameState *game, GameConfig *config)
         printf("3. Hard\n");
         printf("Enter difficulty: ");
 
-        config->ai_difficulty = readInt();
+        config->ai_difficulty = terminal_read_int();
         while (config->ai_difficulty < AI_EASY || config->ai_difficulty > AI_HARD) {
             if (config->ai_difficulty == -1) {
                 return;
             }
             printf("Enter 1, 2, or 3: ");
-            config->ai_difficulty = readInt();
+            config->ai_difficulty = terminal_read_int();
         }
     }
 
@@ -145,7 +134,7 @@ void gameInputs(GameState *game, GameConfig *config)
     game->move_count = 0;
     game->piece_count = 0;
     game->current_player = PLAYER_ONE;
-    initBoard(game);
+    terminal_init_board(game);
 }
 
 static int promptColumn(GameState *game)
@@ -155,16 +144,17 @@ static int promptColumn(GameState *game)
     }
 
     printf("Enter a column (1-%d), or 0 to save and quit: ", game->cols);
-    int column = readInt();
+    int column = terminal_read_int();
     if (column == -1) {
         return -1;
     }
 
     while (column < 0 || column > game->cols ||
            (column > 0 &&
-            game->board[game->rows - 1][column - 1] != EMPTY)) {
+            !rules_is_valid_move(game,
+                                 (Move){column - 1, MOVE_NORMAL}))) {
         printf("Invalid or full column. Enter 0-%d: ", game->cols);
-        column = readInt();
+        column = terminal_read_int();
         if (column == -1) {
             return -1;
         }
@@ -180,7 +170,7 @@ void uiHumanvsHuman(GameState *game, GameConfig *config)
     }
 
     while (!config->win && !config->tie) {
-        printBoard(game);
+        terminal_print_board(game);
 
         int winner = rules_check_winner(game);
         if (winner == 3) {
@@ -216,7 +206,7 @@ void uiHumanvsHuman(GameState *game, GameConfig *config)
             continue;
         }
 
-        clearScreen();
+        terminal_clear_screen();
     }
 }
 
@@ -236,7 +226,7 @@ void uiHumanvsAI(GameState *game, GameConfig *config)
     }
 
     while (!config->win && !config->tie) {
-        printBoard(game);
+        terminal_print_board(game);
 
         int winner = rules_check_winner(game);
         if (winner == 3 || rules_is_draw(game)) {
@@ -273,7 +263,8 @@ void uiHumanvsAI(GameState *game, GameConfig *config)
                 int valid[20];
                 int validCount = 0;
                 for (int c = 0; c < game->cols; c++) {
-                    if (game->board[game->rows - 1][c] == EMPTY) {
+                    if (rules_is_valid_move(game,
+                                           (Move){c, MOVE_NORMAL})) {
                         valid[validCount++] = c + 1;
                     }
                 }
@@ -289,7 +280,7 @@ void uiHumanvsAI(GameState *game, GameConfig *config)
             }
         }
 
-        clearScreen();
+        terminal_clear_screen();
     }
 }
 

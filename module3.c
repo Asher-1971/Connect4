@@ -77,7 +77,8 @@ int generate_moves(const GameState *s, Move moves[MAX_DIM * 3]) {
 
     for (int i = 0; i < s->cols; i++) {
         int col = col_order[i];
-        bool col_full = (s->board[s->rows - 1][col] != 0);
+        Move normal_move = {col, MOVE_NORMAL};
+        bool col_full = !rules_is_valid_move(s, normal_move);
 
         if (!col_full) {
             moves[count].col = col;

@@ -5,6 +5,7 @@
 #include <stdint.h>
 
 #include "header.h"
+#include "rules.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -29,15 +30,7 @@ Move find_best_move(const GameState *root, int time_budget_ms);
 
 /* Stable AI bridge for the canonical numeric bottom-up GameState. */
 static inline int getBestMove(const GameState *fe, int win_length, int time_budget_ms) {
-    if (!fe || fe->rows <= 0 || fe->rows > MAX_DIM ||
-        fe->cols <= 0 || fe->cols > MAX_DIM ||
-        (win_length != 4 && win_length != 5) ||
-        fe->win_length != win_length ||
-        (win_length > fe->rows && win_length > fe->cols) ||
-        (fe->current_player != PLAYER_ONE && fe->current_player != PLAYER_TWO) ||
-        fe->move_count < 0 || fe->move_count > fe->rows * fe->cols ||
-        fe->piece_count < 0 || fe->piece_count > fe->move_count ||
-        fe->piece_count > fe->rows * fe->cols) {
+    if (!rules_validate_state(fe) || fe->win_length != win_length) {
         return -1;
     }
 

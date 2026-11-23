@@ -2,6 +2,7 @@
 #include "header.h"
 #include "module3.h"
 #include "rules.h"
+#include "terminal.h"
 
 static int oracle_check_win(const GameState *game, int piece) {
     static const int directions[4][2] = {
@@ -34,7 +35,7 @@ int main(void) {
     game.rows = 6;
     game.cols = 7;
     game.win_length = 4;
-    initBoard(&game);
+    terminal_init_board(&game);
 
     assert(rules_validate_state(&game));
     assert(game.current_player == PLAYER_ONE);
@@ -61,6 +62,7 @@ int main(void) {
     full.piece_count = 8;
     assert(!rules_apply_move(&full,
                              (Move){6, MOVE_NORMAL}, &full));
+    assert(!rules_is_valid_move(&full, (Move){6, MOVE_NORMAL}));
 
     GameState floating = second;
     floating.board[0][0] = EMPTY;
@@ -93,6 +95,9 @@ int main(void) {
     }
 #if ENABLE_POWERUPS
     assert(rules_validate_state(&powerup_state));
+    Move anvil_move = {6, MOVE_ANVIL};
+    powerup_state.board[powerup_state.rows - 1][6] = P1;
+    assert(rules_is_valid_move(&powerup_state, anvil_move));
 #else
     assert(!rules_validate_state(&powerup_state));
 #endif
@@ -128,7 +133,7 @@ int main(void) {
     horizontal.move_count = 4;
     horizontal.piece_count = 4;
     horizontal.current_player = PLAYER_ONE;
-    initBoard(&horizontal);
+    terminal_init_board(&horizontal);
     for (int c = 0; c < 4; c++) {
         horizontal.board[0][c] = P1;
     }
@@ -144,7 +149,7 @@ int main(void) {
 
 #if ENABLE_POWERUPS
     GameState before_bomb = horizontal;
-    initBoard(&before_bomb);
+    terminal_init_board(&before_bomb);
     before_bomb.board[0][0] = P1;
     before_bomb.board[0][1] = P2;
     before_bomb.board[0][2] = P1;

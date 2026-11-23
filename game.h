@@ -15,8 +15,6 @@ typedef struct {
     bool tie;
 } GameConfig;
 
-void wait_for_enter(void);
-void clearScreen(void);
 int saveGame(GameState *game);
 int loadGame(GameState *game);
 void gameInputs(GameState *game, GameConfig *config);

@@ -39,10 +39,4 @@ typedef struct {
     bool anvil_used[MAX_PLAYERS + 1];
 } GameState;
 
-/* Functions for start.c */
-void printBoard(GameState *game);
-void initBoard(GameState *game);
-int readInt(void);
-int validateBoardSize(int n);
-
 #endif
