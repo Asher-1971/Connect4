@@ -66,7 +66,7 @@ The program employs the standard C libraries such as stdio.h, string.h, time.h, 
 - **Compiler:** GCC (MinGW on Windows, GCC on Linux, or Clang / Xcode Command Line Tools on macOS)
 - **IDE (Optional):** Visual Studio Code or Dev-C++
 
-### Compilation
+### V1 compilation
 
 First, clone the repository and navigate into the project folder:
 
@@ -75,13 +75,36 @@ git clone [https://github.com/Asher-1971/Connect4](https://github.com/Asher-1971
 cd Connect4
 ```
 
-Then compile and run based on your operating system:
+The V1 layout uses `include/`, `src/`, and `tests/`. Power-ups are disabled by
+default with `ENABLE_POWERUPS=0`.
+
+Build the game with GCC:
+
+```bash
+gcc -std=c17 -Wall -Wextra -Werror -pedantic -DENABLE_POWERUPS=0 ^
+    -Iinclude src\game.c src\module3.c src\rules.c src\terminal.c ^
+    -o connect4.exe
+```
+
+Build and run the rules tests:
+
+```bash
+gcc -std=c17 -Wall -Wextra -Werror -pedantic -DENABLE_POWERUPS=0 ^
+    -Iinclude tests\test_canonical_state.c src\module3.c src\rules.c src\terminal.c ^
+    -o test-rules.exe
+test-rules.exe
+```
+
+On Linux or macOS, replace backslashes with `/`, remove `.exe`, and replace `^`
+with `\`. Clang users can replace `gcc` with `clang`.
+
+Run the game:
 
 | Operating System | Compile Command | Run Command |
 | :--- | :--- | :--- |
-| **Windows** | `gcc main.c -o connect4.exe` | `connect4.exe` |
-| **Linux** | `gcc main.c -o connect4` | `./connect4` |
-| **macOS** | `clang main.c -o connect4` (or `gcc main.c -o connect4`) | `./connect4` |
+| **Windows** | `connect4.exe` | `connect4.exe` |
+| **Linux** | `./connect4` | `./connect4` |
+| **macOS** | `./connect4` | `./connect4` |
 
 ### Download Pre-compiled Binaries
 
