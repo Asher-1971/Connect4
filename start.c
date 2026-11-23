@@ -30,9 +30,16 @@ void initBoardColsFilled(GameState *game){
     }
 }
 
-void dropPiece(GameState *game){
+int dropPiece(GameState *game){
+    if (!game || game->colChoice < 1 || game->colChoice > game->cols) {
+        return 0;
+    }
+
     int col = game->colChoice - 1;
     int row = game->boardColsFilled[col];
+    if (row < 0 || row >= game->rows || game->turn < 1 || game->turn > 2) {
+        return 0;
+    }
 
     if (game->turn == 1) {
         game->board[row][col] = P1;
@@ -43,6 +50,7 @@ void dropPiece(GameState *game){
     }
 
     game->boardColsFilled[col]--;
+    return 1;
 }
 
 int readInt(void){
@@ -63,6 +71,7 @@ int validateBoardSize(int n){
 }
 int mainstart(void){
     GameState game = {0};
+    game.winLength = 4;
 
     printf("choose what board size you want to play with\n");
     printf("1. Classic 6x7\n");
@@ -159,4 +168,8 @@ int mainstart(void){
     // AAAGGGHHHHHHHHHHHHHHHHHH
 
     return 0;
+}
+
+int main(void){
+    return mainstart();
 }

@@ -1,6 +1,10 @@
 #include "header.h"
 
 int countInLine(GameState *game, int r, int c, int dr, int dc, char piece) {
+    if (!game || game->rows < 1 || game->rows > MAX_SIZE ||
+        game->cols < 1 || game->cols > MAX_SIZE) {
+        return 0;
+    }
     if (r < 0 || r >= game->rows || c < 0 || c >= game->cols) {
         return 0;
     }
@@ -11,7 +15,15 @@ int countInLine(GameState *game, int r, int c, int dr, int dc, char piece) {
 }
 
 int checkWin(GameState *game, char piece) {
+    if (!game || game->rows < 1 || game->rows > MAX_SIZE ||
+        game->cols < 1 || game->cols > MAX_SIZE ||
+        (piece != P1 && piece != P2)) {
+        return 0;
+    }
     int target = (game->winLength >= 4) ? game->winLength : 4;
+    if (target > game->rows && target > game->cols) {
+        return 0;
+    }
     for (int r = 0; r < game->rows; r++) {
         for (int c = 0; c < game->cols; c++) {
             if (countInLine(game, r, c, 0, 1, piece) >= target) return 1;   /* Right */
@@ -24,5 +36,9 @@ int checkWin(GameState *game, char piece) {
 }
 
 int checkTie(GameState *game) {
+    if (!game || game->rows < 1 || game->rows > MAX_SIZE ||
+        game->cols < 1 || game->cols > MAX_SIZE) {
+        return 0;
+    }
     return game->moves >= game->rows * game->cols;
 }

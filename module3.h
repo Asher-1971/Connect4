@@ -76,29 +76,42 @@ Move find_best_move(const AIGameState *root, int time_budget_ms);
  */
 #ifdef HEADER_H
 static inline int getBestMove(const GameState *fe, int win_length, int time_budget_ms) {
-    if (!fe || fe->rows <= 0 || fe->rows > MAX_DIM || fe->cols <= 0 || fe->cols > MAX_DIM) {
+    if (!fe || fe->rows <= 0 || fe->rows > MAX_DIM ||
+        fe->cols <= 0 || fe->cols > MAX_DIM ||
+        win_length < 4 || win_length > MAX_DIM ||
+        (win_length > fe->rows && win_length > fe->cols) ||
+        (fe->turn != 1 && fe->turn != 2) ||
+        fe->moves < 0 || fe->moves > fe->rows * fe->cols) {
         return -1;
     }
 
     AIGameState ai = {0};
     ai.rows = fe->rows;
     ai.cols = fe->cols;
-    ai.win_length = (win_length >= 4) ? win_length : 4;
+    ai.win_length = win_length;
     ai.current_player = fe->turn;
     ai.move_count = fe->moves;
 
+    int pieces = 0;
     for (int r = 0; r < fe->rows; r++) {
         int ai_row = fe->rows - 1 - r; /* Flip top-down frontend row to bottom-up */
         for (int c = 0; c < fe->cols; c++) {
             char cell = fe->board[r][c];
             if (cell == P1) {
                 ai.board[ai_row][c] = 1;
+                pieces++;
             } else if (cell == P2) {
                 ai.board[ai_row][c] = 2;
-            } else {
+                pieces++;
+            } else if (cell == EMPTY) {
                 ai.board[ai_row][c] = 0;
+            } else {
+                return -1;
             }
         }
+    }
+    if (pieces > fe->moves) {
+        return -1;
     }
 
     Move best = find_best_move(&ai, time_budget_ms);

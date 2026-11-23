@@ -1,3 +1,7 @@
+#ifndef _WIN32
+#  define _POSIX_C_SOURCE 200809L
+#endif
+
 #include "module3.h"
 #include <stdlib.h>
 
@@ -12,17 +16,54 @@
 #define INF_SCORE 20000000
 #define MAX_SEARCH_DEPTH 64
 
-/* Cross-platform wall-clock timestamp in milliseconds */
-static uint64_t now_ms(void) {
+/* Cross-platform monotonic timestamp in milliseconds. */
+static bool now_ms(uint64_t *result) {
+    if (!result) {
+        return false;
+    }
 #ifdef _WIN32
-    return (uint64_t)GetTickCount64();
+    *result = (uint64_t)GetTickCount64();
+    return true;
 #else
     struct timespec ts;
-    if (timespec_get(&ts, TIME_UTC) != TIME_UTC) {
-        return 0ULL;
+    if (clock_gettime(CLOCK_MONOTONIC, &ts) != 0) {
+        return false;
     }
-    return (uint64_t)ts.tv_sec * 1000ULL + (uint64_t)(ts.tv_nsec / 1000000ULL);
+    *result = (uint64_t)ts.tv_sec * 1000ULL +
+              (uint64_t)ts.tv_nsec / 1000000ULL;
+    return true;
 #endif
+}
+
+static bool valid_state(const AIGameState *s) {
+    if (!s || s->rows < 1 || s->rows > MAX_DIM ||
+        s->cols < 1 || s->cols > MAX_DIM ||
+        s->win_length < 4 || s->win_length > MAX_DIM ||
+        (s->win_length > s->rows && s->win_length > s->cols) ||
+        (s->current_player != 1 && s->current_player != 2) ||
+        s->move_count < 0 || s->move_count > s->rows * s->cols) {
+        return false;
+    }
+
+    int pieces = 0;
+    for (int c = 0; c < s->cols; c++) {
+        bool seen_empty = false;
+        for (int r = 0; r < s->rows; r++) {
+            uint8_t cell = s->board[r][c];
+            if (cell > 2) {
+                return false;
+            }
+            if (cell == 0) {
+                seen_empty = true;
+            } else {
+                if (seen_empty) {
+                    return false;
+                }
+                pieces++;
+            }
+        }
+    }
+    return pieces <= s->move_count;
 }
 
 /* Builds center-out column ordering: e.g., for cols=7 -> [3, 2, 4, 1, 5, 0, 6] */
@@ -49,7 +90,7 @@ static void build_center_out_order(int cols, int order[MAX_DIM]) {
  * full-column checks for v2 MOVE_ANVIL.
  */
 int generate_moves(const AIGameState *s, Move moves[MAX_DIM * 3]) {
-    if (!s || s->rows <= 0 || s->rows > MAX_DIM || s->cols <= 0 || s->cols > MAX_DIM) {
+    if (!valid_state(s) || !moves) {
         return 0;
     }
 
@@ -93,7 +134,8 @@ int generate_moves(const AIGameState *s, Move moves[MAX_DIM * 3]) {
 
 /* Compacts every column downward (row 0 = bottom) after Bomb explosions */
 void apply_gravity(AIGameState *s) {
-    if (!s || s->rows <= 0 || s->rows > MAX_DIM || s->cols <= 0 || s->cols > MAX_DIM) {
+    if (!s || s->rows <= 0 || s->rows > MAX_DIM ||
+        s->cols <= 0 || s->cols > MAX_DIM) {
         return;
     }
 
@@ -107,6 +149,9 @@ void apply_gravity(AIGameState *s) {
                 write_row++;
             }
         }
+        for (int r = write_row; r < s->rows; r++) {
+            s->board[r][c] = 0;
+        }
     }
 }
 
@@ -118,7 +163,7 @@ bool try_apply_move(const AIGameState *s, Move m, AIGameState *out) {
     if (!s || !out) {
         return false;
     }
-    if (s->rows <= 0 || s->rows > MAX_DIM || s->cols <= 0 || s->cols > MAX_DIM) {
+    if (!valid_state(s)) {
         return false;
     }
     if (m.col < 0 || m.col >= s->cols) {
@@ -211,7 +256,7 @@ int check_winner(const AIGameState *s) {
         {1, -1}   /* Diagonal up-left */
     };
 
-    if (!s || s->win_length <= 0) {
+    if (!valid_state(s)) {
         return 0;
     }
 
@@ -321,7 +366,7 @@ int evaluate_board(const AIGameState *s) {
         {1, -1}
     };
 
-    if (!s || s->win_length <= 0) {
+    if (!valid_state(s)) {
         return 0;
     }
 
@@ -384,8 +429,12 @@ int evaluate_board(const AIGameState *s) {
 
 /* Depth-limited Negamax with Alpha-Beta pruning and periodic timer checks */
 int negamax(const AIGameState *s, int depth, int alpha, int beta, SearchContext *ctx) {
+    if (!valid_state(s) || !ctx) {
+        return 0;
+    }
     if ((ctx->nodes++ & 1023ULL) == 0ULL) {
-        if (now_ms() >= ctx->deadline_ms) {
+        uint64_t current_ms;
+        if (!now_ms(&current_ms) || current_ms >= ctx->deadline_ms) {
             ctx->timed_out = true;
             return 0;
         }
@@ -459,7 +508,7 @@ static void promote_pv_move(Move moves[MAX_DIM * 3], int num_moves, Move pv) {
  */
 Move find_best_move(const AIGameState *root, int time_budget_ms) {
     Move invalid = { -1, MOVE_NORMAL };
-    if (!root) {
+    if (!valid_state(root) || check_winner(root) != 0) {
         return invalid;
     }
 
@@ -476,7 +525,11 @@ Move find_best_move(const AIGameState *root, int time_budget_ms) {
 
     SearchContext ctx;
     ctx.nodes = 0ULL;
-    ctx.deadline_ms = now_ms() + (uint64_t)time_budget_ms;
+    uint64_t start_ms;
+    if (!now_ms(&start_ms)) {
+        return best_move;
+    }
+    ctx.deadline_ms = start_ms + (uint64_t)time_budget_ms;
     ctx.timed_out = false;
 
     int max_depth = MAX_SEARCH_DEPTH;
