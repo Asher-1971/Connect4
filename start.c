@@ -8,30 +8,38 @@
 
 // functions
 void printBoard(GameState *game){
+    if (!game) return;
     for (int j = 0; j < game->cols; j++) {
         printf("%d ", j + 1);   
     }
 
     printf("\n");
-    for (int i = 0; i < game->rows; i++) {
+    for (int i = game->rows - 1; i >= 0; i--) {
         for(int j = 0; j < game->cols; j++){
-            printf("%c ", game->board[i][j]);
+            char piece = game->board[i][j] == P1 ? 'X' :
+                         game->board[i][j] == P2 ? 'O' : '.';
+            printf("%c ", piece);
         }
         printf("\n");
     }
 }
 
 void initBoard(GameState *game){
+    if (!game) return;
     for (int i = 0; i < game->rows; i++) {
         for(int j = 0; j < game->cols; j++){
             game->board[i][j] = EMPTY;
         }
     }
+    game->piece_count = 0;
+    game->move_count = 0;
+    game->current_player = PLAYER_ONE;
 }
 
 void initBoardColsFilled(GameState *game){
+    if (!game) return;
     for (int i = 0; i < game->cols; i++) {
-        game->boardColsFilled[i] = game->rows - 1;
+        game->boardColsFilled[i] = 0;
     }
 }
 
@@ -42,22 +50,21 @@ int dropPiece(GameState *game){
 
     int col = game->colChoice - 1;
     int row = game->boardColsFilled[col];
-    if (row < 0 || row >= game->rows || game->turn < 1 || game->turn > 2) {
+    if (row < 0 || row >= game->rows ||
+        game->current_player < PLAYER_ONE ||
+        game->current_player > PLAYER_TWO) {
         return 0;
     }
     if (game->board[row][col] != EMPTY) {
         return 0;
     }
 
-    if (game->turn == 1) {
-        game->board[row][col] = P1;
-        game->turn = 2;
-    } else {
-        game->board[row][col] = P2;
-        game->turn = 1;
-    }
-
-    game->boardColsFilled[col]--;
+    game->board[row][col] = (uint8_t)game->current_player;
+    game->boardColsFilled[col]++;
+    game->piece_count++;
+    game->move_count++;
+    game->current_player =
+        (game->current_player == PLAYER_ONE) ? PLAYER_TWO : PLAYER_ONE;
     return 1;
 }
 

@@ -20,16 +20,17 @@ int checkWin(GameState *game, char piece) {
         (piece != P1 && piece != P2)) {
         return 0;
     }
+    uint8_t numericPiece = (piece == 'X' || piece == P1) ? P1 : P2;
     int target = (game->winLength >= 4) ? game->winLength : 4;
     if (target > game->rows && target > game->cols) {
         return 0;
     }
     for (int r = 0; r < game->rows; r++) {
         for (int c = 0; c < game->cols; c++) {
-            if (countInLine(game, r, c, 0, 1, piece) >= target) return 1;   /* Right */
-            if (countInLine(game, r, c, 1, 0, piece) >= target) return 1;   /* Down */
-            if (countInLine(game, r, c, 1, 1, piece) >= target) return 1;   /* Diagonal down-right */
-            if (countInLine(game, r, c, 1, -1, piece) >= target) return 1;  /* Diagonal down-left */
+            if (countInLine(game, r, c, 0, 1, numericPiece) >= target) return 1;
+            if (countInLine(game, r, c, 1, 0, numericPiece) >= target) return 1;
+            if (countInLine(game, r, c, 1, 1, numericPiece) >= target) return 1;
+            if (countInLine(game, r, c, 1, -1, numericPiece) >= target) return 1;
         }
     }
     return 0;

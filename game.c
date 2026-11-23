@@ -141,9 +141,10 @@ void gameInputs(GameState *game)
 
     game->win = 0;
     game->tie = 0;
-    game->moves = 0;
+    game->move_count = 0;
+    game->piece_count = 0;
+    game->current_player = PLAYER_ONE;
     game->colChoice = 0;
-    game->turn = 1;
     initBoard(game);
     initBoardColsFilled(game);
 }
@@ -193,8 +194,7 @@ void uiHumanvsHuman(GameState *game)
             break;
         }
 
-        char currentPiece = (game->turn == 1) ? P1 : P2;
-        printf("Player %c turn:\n", currentPiece);
+        printf("Player %d turn:\n", game->current_player);
 
         int column = promptColumn(game);
         if (column == -1) {
@@ -250,8 +250,8 @@ void uiHumanvsAI(GameState *game)
             break;
         }
 
-        if (game->turn == 1) {
-            printf("Your turn (%c):\n", P1);
+        if (game->current_player == PLAYER_ONE) {
+            printf("Your turn (X):\n");
             int column = promptColumn(game);
             if (column == -1) {
                 return;
@@ -269,7 +269,7 @@ void uiHumanvsAI(GameState *game)
                 int valid[20];
                 int validCount = 0;
                 for (int c = 0; c < game->cols; c++) {
-                    if (game->boardColsFilled[c] >= 0) {
+                    if (game->boardColsFilled[c] < game->rows) {
                         valid[validCount++] = c + 1;
                     }
                 }
