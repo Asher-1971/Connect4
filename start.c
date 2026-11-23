@@ -25,8 +25,8 @@ void printBoard(GameState *game) {
 }
 
 void initBoard(GameState *game) {
-    if (!game || game->rows < MIN_SIZE || game->rows > MAX_SIZE ||
-        game->cols < MIN_SIZE || game->cols > MAX_SIZE) {
+    if (!game || !validateBoardSize(game->rows) ||
+        !validateBoardSize(game->cols)) {
         return;
     }
 

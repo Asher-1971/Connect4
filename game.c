@@ -4,6 +4,7 @@
 
 #include "game.h"
 #include "module3.h"
+#include "rules.h"
 
 void wait_for_enter(void)
 {
@@ -181,13 +182,18 @@ void uiHumanvsHuman(GameState *game, GameConfig *config)
     while (!config->win && !config->tie) {
         printBoard(game);
 
-        if (checkWin(game, P1) || checkWin(game, P2)) {
-            char winner = checkWin(game, P1) ? 'X' : 'O';
-            printf("Player %c wins!\n", winner);
+        int winner = rules_check_winner(game);
+        if (winner == 3) {
+            printf("It's a draw!\n");
+            config->tie = true;
+            break;
+        } else if (winner != 0) {
+            char winner_piece = (winner == P1) ? 'X' : 'O';
+            printf("Player %c wins!\n", winner_piece);
             config->win = true;
             break;
         }
-        if (checkTie(game)) {
+        if (rules_is_draw(game)) {
             printf("It's a draw!\n");
             config->tie = true;
             break;
@@ -206,7 +212,7 @@ void uiHumanvsHuman(GameState *game, GameConfig *config)
         }
 
         Move move = {column - 1, MOVE_NORMAL};
-        if (!try_apply_move(game, move, game)) {
+        if (!rules_apply_move(game, move, game)) {
             continue;
         }
 
@@ -232,19 +238,18 @@ void uiHumanvsAI(GameState *game, GameConfig *config)
     while (!config->win && !config->tie) {
         printBoard(game);
 
-        if (checkWin(game, P1)) {
+        int winner = rules_check_winner(game);
+        if (winner == 3 || rules_is_draw(game)) {
+            printf("It's a draw!\n");
+            config->tie = true;
+            break;
+        } else if (winner == P1) {
             printf("You win!\n");
             config->win = true;
             break;
-        }
-        if (checkWin(game, P2)) {
+        } else if (winner == P2) {
             printf("AI wins!\n");
             config->win = true;
-            break;
-        }
-        if (checkTie(game)) {
-            printf("It's a draw!\n");
-            config->tie = true;
             break;
         }
 
@@ -260,7 +265,7 @@ void uiHumanvsAI(GameState *game, GameConfig *config)
                 return;
             }
             Move move = {column - 1, MOVE_NORMAL};
-            if (!try_apply_move(game, move, game)) continue;
+            if (!rules_apply_move(game, move, game)) continue;
         } else {
             printf("AI turn (O):\n");
 
@@ -276,11 +281,11 @@ void uiHumanvsAI(GameState *game, GameConfig *config)
                     ? valid[rand() % validCount]
                     : -1;
                 Move move = {column - 1, MOVE_NORMAL};
-                if (column > 0 && !try_apply_move(game, move, game)) continue;
+                if (column > 0 && !rules_apply_move(game, move, game)) continue;
             } else {
                 int timeBudget = (difficulty == AI_NORMAL) ? 100 : 1000;
                 Move move = find_best_move(game, timeBudget);
-                if (!try_apply_move(game, move, game)) continue;
+                if (!rules_apply_move(game, move, game)) continue;
             }
         }
 

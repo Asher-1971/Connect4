@@ -1,6 +1,7 @@
 #include <assert.h>
 #include "header.h"
 #include "module3.h"
+#include "rules.h"
 
 static int oracle_check_win(const GameState *game, int piece) {
     static const int directions[4][2] = {
@@ -35,17 +36,19 @@ int main(void) {
     game.win_length = 4;
     initBoard(&game);
 
-    assert(validateGameState(&game));
+    assert(rules_validate_state(&game));
     assert(game.current_player == PLAYER_ONE);
 
     Move move = {0, MOVE_NORMAL};
-    GameState first = apply_move(game, move);
+    GameState first = {0};
+    assert(rules_apply_move(&game, move, &first));
     assert(first.board[0][0] == P1);
     assert(first.move_count == 1);
     assert(first.piece_count == 1);
     assert(first.current_player == PLAYER_TWO);
 
-    GameState second = apply_move(first, move);
+    GameState second = {0};
+    assert(rules_apply_move(&first, move, &second));
     assert(second.board[1][0] == P2);
     assert(second.move_count == 2);
     assert(second.piece_count == 2);
@@ -56,8 +59,8 @@ int main(void) {
         full.board[r][6] = P1;
     }
     full.piece_count = 8;
-    assert(!try_apply_move(&full,
-                           (Move){6, MOVE_NORMAL}, &full));
+    assert(!rules_apply_move(&full,
+                             (Move){6, MOVE_NORMAL}, &full));
 
     GameState floating = second;
     floating.board[0][0] = EMPTY;
@@ -65,16 +68,58 @@ int main(void) {
     floating.move_count = 2;
     floating.piece_count = 2;
     floating.current_player = PLAYER_TWO;
-    assert(!validateGameState(&floating));
+    assert(!rules_validate_state(&floating));
 
     GameState invalid_cell = second;
     invalid_cell.board[0][0] = 3;
-    assert(!validateGameState(&invalid_cell));
+    assert(!rules_validate_state(&invalid_cell));
 
     GameState mismatch = second;
     mismatch.move_count = 1;
     mismatch.piece_count = 2;
-    assert(!validateGameState(&mismatch));
+    assert(!rules_validate_state(&mismatch));
+
+    GameState powerup_state = second;
+    powerup_state.move_count = 3;
+    powerup_state.piece_count = 1;
+    powerup_state.board[0][0] = P1;
+    for (int r = 1; r < powerup_state.rows; r++) {
+        for (int c = 0; c < powerup_state.cols; c++) {
+            powerup_state.board[r][c] = EMPTY;
+        }
+    }
+    for (int c = 1; c < powerup_state.cols; c++) {
+        powerup_state.board[0][c] = EMPTY;
+    }
+#if ENABLE_POWERUPS
+    assert(rules_validate_state(&powerup_state));
+#else
+    assert(!rules_validate_state(&powerup_state));
+#endif
+
+    assert(rules_is_valid_move(&game, (Move){0, MOVE_NORMAL}));
+    assert(!rules_is_valid_move(&game, (Move){-1, MOVE_NORMAL}));
+
+    GameState drawn = {0};
+    drawn.rows = 4;
+    drawn.cols = 4;
+    drawn.win_length = 4;
+    drawn.move_count = 16;
+    drawn.piece_count = 16;
+    drawn.current_player = PLAYER_ONE;
+    uint8_t draw_board[4][4] = {
+        {P1, P1, P2, P2},
+        {P2, P2, P1, P1},
+        {P1, P1, P2, P2},
+        {P2, P2, P1, P1}
+    };
+    for (int r = 0; r < 4; r++) {
+        for (int c = 0; c < 4; c++) {
+            drawn.board[r][c] = draw_board[r][c];
+        }
+    }
+    assert(rules_check_winner(&drawn) == 0);
+    assert(rules_is_draw(&drawn));
 
     GameState horizontal = {0};
     horizontal.rows = 6;
@@ -95,6 +140,26 @@ int main(void) {
     horizontal.current_player = PLAYER_TWO;
     assert(check_winner(&horizontal) == PLAYER_ONE);
     assert(oracle_check_win(&horizontal, P1));
+
+
+#if ENABLE_POWERUPS
+    GameState before_bomb = horizontal;
+    initBoard(&before_bomb);
+    before_bomb.board[0][0] = P1;
+    before_bomb.board[0][1] = P2;
+    before_bomb.board[0][2] = P1;
+    before_bomb.move_count = 3;
+    before_bomb.piece_count = 3;
+    before_bomb.current_player = PLAYER_ONE;
+
+    GameState after_bomb = {0};
+    assert(rules_apply_move(&before_bomb,
+                            (Move){1, MOVE_BOMB}, &after_bomb));
+    assert(after_bomb.piece_count == 0);
+    assert(after_bomb.move_count == 4);
+    assert(after_bomb.bomb_used[PLAYER_ONE] == true);
+    assert(rules_validate_state(&after_bomb));
+#endif
 
     return 0;
 }

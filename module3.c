@@ -3,6 +3,7 @@
 #endif
 
 #include "module3.h"
+#include "rules.h"
 #include <stdlib.h>
 
 #ifdef _WIN32
@@ -35,61 +36,6 @@ static bool now_ms(uint64_t *result) {
 #endif
 }
 
-bool validateGameState(const GameState *s) {
-    if (!s || s->rows < 1 || s->rows > MAX_DIM ||
-        s->cols < 1 || s->cols > MAX_DIM ||
-        (s->win_length != 4 && s->win_length != 5) ||
-        (s->win_length > s->rows && s->win_length > s->cols) ||
-        (s->current_player != 1 && s->current_player != 2) ||
-        s->move_count < 0 || s->move_count > s->rows * s->cols ||
-        s->piece_count < 0 || s->piece_count > s->move_count ||
-        s->piece_count > s->rows * s->cols) {
-        return false;
-    }
-
-    int piece_count = 0;
-    int p1_count = 0;
-    int p2_count = 0;
-    for (int c = 0; c < s->cols; c++) {
-        bool seen_empty = false;
-        for (int r = 0; r < s->rows; r++) {
-            uint8_t cell = s->board[r][c];
-            if (cell > 2) {
-                return false;
-            }
-            if (cell == 0) {
-                seen_empty = true;
-            } else {
-                if (seen_empty) {
-                    return false;
-                }
-                piece_count++;
-                if (cell == 1) {
-                    p1_count++;
-                } else {
-                    p2_count++;
-                }
-            }
-        }
-    }
-    if (piece_count != s->piece_count) {
-        return false;
-    }
-#if !ENABLE_POWERUPS
-    if (s->move_count != s->piece_count) {
-        return false;
-    }
-#endif
-    if (p1_count < p2_count || p1_count - p2_count > 1) {
-        return false;
-    }
-    if ((p1_count == p2_count && s->current_player != 1) ||
-        (p1_count == p2_count + 1 && s->current_player != 2)) {
-        return false;
-    }
-    return true;
-}
-
 /* Builds center-out column ordering: e.g., for cols=7 -> [3, 2, 4, 1, 5, 0, 6] */
 static void build_center_out_order(int cols, int order[MAX_DIM]) {
     int mid = cols / 2;
@@ -114,7 +60,7 @@ static void build_center_out_order(int cols, int order[MAX_DIM]) {
  * full-column checks for v2 MOVE_ANVIL.
  */
 int generate_moves(const GameState *s, Move moves[MAX_DIM * 3]) {
-    if (!validateGameState(s) || !moves || check_winner(s) != 0) {
+    if (!rules_validate_state(s) || !moves || rules_is_terminal(s)) {
         return 0;
     }
 
@@ -156,209 +102,12 @@ int generate_moves(const GameState *s, Move moves[MAX_DIM * 3]) {
     return count;
 }
 
-/* Compacts every column downward (row 0 = bottom) after Bomb explosions */
-void apply_gravity(GameState *s) {
-    if (!s || s->rows <= 0 || s->rows > MAX_DIM ||
-        s->cols <= 0 || s->cols > MAX_DIM) {
-        return;
-    }
-
-    for (int c = 0; c < s->cols; c++) {
-        int write_row = 0;
-        for (int r = 0; r < s->rows; r++) {
-            uint8_t piece = s->board[r][c];
-            if (piece != 0) {
-                s->board[r][c] = 0;
-                s->board[write_row][c] = piece;
-                write_row++;
-            }
-        }
-        for (int r = write_row; r < s->rows; r++) {
-            s->board[r][c] = 0;
-        }
-    }
-    int piece_count = 0;
-    for (int r = 0; r < s->rows; r++) {
-        for (int c = 0; c < s->cols; c++) {
-            if (s->board[r][c] != 0) {
-                piece_count++;
-            }
-        }
-    }
-    s->piece_count = piece_count;
-}
-
-/*
- * Validates and applies a move into *out.
- * Returns true if the move was legal and applied; false if invalid/full (state unchanged).
- */
-bool try_apply_move(const GameState *s, Move m, GameState *out) {
-    if (!s || !out) {
-        return false;
-    }
-    if (!validateGameState(s)) {
-        return false;
-    }
-    if (check_winner(s) != 0) {
-        *out = *s;
-        return false;
-    }
-    if (m.col < 0 || m.col >= s->cols) {
-        return false;
-    }
-
-    int p = s->current_player;
-    if (p != 1 && p != 2) {
-        return false;
-    }
-
-    GameState next = *s;
-    bool applied = false;
-
-    if (m.type == MOVE_NORMAL) {
-        for (int r = 0; r < next.rows; r++) {
-            if (next.board[r][m.col] == 0) {
-                next.board[r][m.col] = (uint8_t)p;
-                applied = true;
-                break;
-            }
-        }
-    }
-#if ENABLE_POWERUPS
-    else if (m.type == MOVE_BOMB) {
-        if (!next.bomb_used[p]) {
-            int land_row = -1;
-            for (int r = 0; r < next.rows; r++) {
-                if (next.board[r][m.col] == 0) {
-                    land_row = r;
-                    break;
-                }
-            }
-            if (land_row >= 0) {
-                int r_min = (land_row - 1 < 0) ? 0 : (land_row - 1);
-                int r_max = (land_row + 1 >= next.rows) ? (next.rows - 1) : (land_row + 1);
-                int c_min = (m.col - 1 < 0) ? 0 : (m.col - 1);
-                int c_max = (m.col + 1 >= next.cols) ? (next.cols - 1) : (m.col + 1);
-
-                for (int r = r_min; r <= r_max; r++) {
-                    for (int c = c_min; c <= c_max; c++) {
-                        next.board[r][c] = 0;
-                    }
-                }
-                next.bomb_used[p] = true;
-                apply_gravity(&next);
-                applied = true;
-            }
-        }
-    } else if (m.type == MOVE_ANVIL) {
-        if (!next.anvil_used[p]) {
-            for (int r = 0; r < next.rows; r++) {
-                next.board[r][m.col] = 0;
-            }
-            next.anvil_used[p] = true;
-            applied = true;
-        }
-    }
-#endif
-
-    if (!applied) {
-        *out = *s;
-        return false;
-    }
-
-    next.move_count++;
-    int next_piece_count = 0;
-    for (int r = 0; r < next.rows; r++) {
-        for (int c = 0; c < next.cols; c++) {
-            if (next.board[r][c] != 0) {
-                next_piece_count++;
-            }
-        }
-    }
-    next.piece_count = next_piece_count;
-    next.current_player = (p == 1) ? 2 : 1;
-    *out = next;
-    return true;
-}
-
-/* Copy-Make state transition: returns unchanged state if move is illegal/full */
-GameState apply_move(GameState s, Move m) {
-    GameState next;
-    if (try_apply_move(&s, m, &next)) {
-        return next;
-    }
-    return s;
-}
-
 /*
  * Scans the entire board for both players to detect simultaneous double-wins.
  * Returns: 0 = ongoing, 1 = Player 1 wins, 2 = Player 2 wins, 3 = simultaneous draw.
  */
 int check_winner(const GameState *s) {
-    static const int dirs[4][2] = {
-        {0,  1},  /* Horizontal */
-        {1,  0},  /* Vertical */
-        {1,  1},  /* Diagonal up-right */
-        {1, -1}   /* Diagonal up-left */
-    };
-
-    if (!validateGameState(s)) {
-        return 0;
-    }
-
-    bool p1_won = false;
-    bool p2_won = false;
-    int K = s->win_length;
-
-    for (int r = 0; r < s->rows; r++) {
-        for (int c = 0; c < s->cols; c++) {
-            uint8_t p = s->board[r][c];
-            if (p == 0) {
-                continue;
-            }
-            if ((p == 1 && p1_won) || (p == 2 && p2_won)) {
-                continue;
-            }
-
-            for (int d = 0; d < 4; d++) {
-                int end_r = r + (K - 1) * dirs[d][0];
-                int end_c = c + (K - 1) * dirs[d][1];
-
-                /* Strict boundary clamping */
-                if (end_r < 0 || end_r >= s->rows || end_c < 0 || end_c >= s->cols) {
-                    continue;
-                }
-
-                bool line_match = true;
-                for (int step = 1; step < K; step++) {
-                    if (s->board[r + step * dirs[d][0]][c + step * dirs[d][1]] != p) {
-                        line_match = false;
-                        break;
-                    }
-                }
-
-                if (line_match) {
-                    if (p == 1) {
-                        p1_won = true;
-                    } else {
-                        p2_won = true;
-                    }
-                    break;
-                }
-            }
-        }
-    }
-
-    if (p1_won && p2_won) {
-        return 3;
-    }
-    if (p1_won) {
-        return 1;
-    }
-    if (p2_won) {
-        return 2;
-    }
-    return 0;
+    return rules_check_winner(s);
 }
 
 /* Scores a single K-cell slice from 'me' perspective */
@@ -412,7 +161,7 @@ int evaluate_board(const GameState *s) {
         {1, -1}
     };
 
-    if (!validateGameState(s)) {
+    if (!rules_validate_state(s)) {
         return 0;
     }
 
@@ -475,7 +224,7 @@ int evaluate_board(const GameState *s) {
 
 /* Depth-limited Negamax with Alpha-Beta pruning and periodic timer checks */
 int negamax(const GameState *s, int depth, int alpha, int beta, SearchContext *ctx) {
-    if (!validateGameState(s) || !ctx) {
+    if (!rules_validate_state(s) || !ctx) {
         return 0;
     }
     if ((ctx->nodes++ & 1023ULL) == 0ULL) {
@@ -511,7 +260,7 @@ int negamax(const GameState *s, int depth, int alpha, int beta, SearchContext *c
     int best_val = -INF_SCORE;
     for (int i = 0; i < num_moves; i++) {
         GameState next;
-        if (!try_apply_move(s, moves[i], &next)) {
+        if (!rules_apply_move(s, moves[i], &next)) {
             continue;
         }
         int val = -negamax(&next, depth - 1, -beta, -alpha, ctx);
@@ -554,7 +303,7 @@ static void promote_pv_move(Move moves[MAX_DIM * 3], int num_moves, Move pv) {
  */
 Move find_best_move(const GameState *root, int time_budget_ms) {
     Move invalid = { -1, MOVE_NORMAL };
-    if (!validateGameState(root) || check_winner(root) != 0) {
+    if (!rules_validate_state(root) || rules_is_terminal(root)) {
         return invalid;
     }
 
@@ -598,7 +347,7 @@ Move find_best_move(const GameState *root, int time_budget_ms) {
 
         for (int i = 0; i < num_moves; i++) {
             GameState next;
-            if (!try_apply_move(root, root_moves[i], &next)) {
+            if (!rules_apply_move(root, root_moves[i], &next)) {
                 continue;
             }
             int score = -negamax(&next, depth - 1, -beta, -alpha, &ctx);

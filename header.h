@@ -10,6 +10,7 @@
 #define MIN_SIZE 4
 #define MAX_SIZE 20
 #define MAX_PLAYERS 2
+#define ENABLE_POWERUPS 0
 
 #define PLAYER_NONE 0
 #define PLAYER_ONE 1
@@ -43,11 +44,5 @@ void printBoard(GameState *game);
 void initBoard(GameState *game);
 int readInt(void);
 int validateBoardSize(int n);
-bool validateGameState(const GameState *game);
-
-/* Functions for win.c */
-int countInLine(GameState *game, int r, int c, int dr, int dc, int piece);
-int checkWin(GameState *game, int piece);
-int checkTie(GameState *game);
 
 #endif

@@ -12,7 +12,6 @@ extern "C" {
 
 /* Board & Compile-Time Feature Configuration */
 #define MAX_DIM 20
-#define ENABLE_POWERUPS 0  /* Flip to 1 in v2 to enable Bomb & Anvil moves */
 
 /* Stack-allocated search telemetry & re-entrant timeout budget */
 typedef struct {
@@ -23,9 +22,6 @@ typedef struct {
 
 /* Core AI Engine API */
 int generate_moves(const GameState *s, Move moves[MAX_DIM * 3]);
-void apply_gravity(GameState *s);
-bool try_apply_move(const GameState *s, Move m, GameState *out);
-GameState apply_move(GameState s, Move m);
 int check_winner(const GameState *s);
 int evaluate_board(const GameState *s);
 int negamax(const GameState *s, int depth, int alpha, int beta, SearchContext *ctx);
