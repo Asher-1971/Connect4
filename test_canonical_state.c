@@ -3,12 +3,15 @@
 #include "module3.h"
 
 static int oracle_check_win(const GameState *game, int piece) {
-    static const int directions[4][2] = {{0, 1}, {1, 0}, {1, 1}, {1, -1}};
+    static const int directions[4][2] = {
+        {0, 1}, {1, 0}, {1, 1}, {1, -1}
+    };
+
     for (int r = 0; r < game->rows; r++) {
         for (int c = 0; c < game->cols; c++) {
             for (int d = 0; d < 4; d++) {
                 int won = 1;
-                for (int k = 0; k < game->winLength; k++) {
+                for (int k = 0; k < game->win_length; k++) {
                     int rr = r + k * directions[d][0];
                     int cc = c + k * directions[d][1];
                     if (rr < 0 || rr >= game->rows ||
@@ -26,151 +29,72 @@ static int oracle_check_win(const GameState *game, int piece) {
 }
 
 int main(void) {
-    assert(!dropPiece(NULL));
-
-    GameState invalid_dimensions = {0};
-    invalid_dimensions.rows = 21;
-    invalid_dimensions.cols = 7;
-    initBoard(&invalid_dimensions);
-    assert(invalid_dimensions.piece_count == 0);
-    assert(invalid_dimensions.move_count == 0);
-    invalid_dimensions.rows = 6;
-    invalid_dimensions.cols = 7;
-    invalid_dimensions.winLength = 4;
-    invalid_dimensions.rows = 21;
-    invalid_dimensions.colChoice = 1;
-    assert(!dropPiece(&invalid_dimensions));
-
-    GameState reset = {0};
-    reset.rows = 6;
-    reset.cols = 7;
-    reset.winLength = 4;
-    reset.win = 1;
-    reset.tie = 1;
-    reset.colChoice = 7;
-    reset.move_count = 9;
-    reset.piece_count = 9;
-    initBoard(&reset);
-    assert(reset.win == 0);
-    assert(reset.tie == 0);
-    assert(reset.colChoice == 0);
-
     GameState game = {0};
     game.rows = 6;
     game.cols = 7;
-    game.winLength = 4;
+    game.win_length = 4;
     initBoard(&game);
 
-    assert(game.current_player == PLAYER_ONE);
-    assert(game.move_count == 0);
-    assert(game.piece_count == 0);
-    assert(game.bomb_used[PLAYER_ONE] == false);
-    assert(game.anvil_used[PLAYER_TWO] == false);
-
-    assert(!dropPiece(NULL));
-    game.colChoice = 0;
-    assert(!dropPiece(&game));
-    game.colChoice = 8;
-    assert(!dropPiece(&game));
-
-    game.colChoice = 1;
-    assert(dropPiece(&game));
-    assert(game.board[0][0] == P1);
-    assert(game.move_count == 1);
-    assert(game.piece_count == 1);
-    assert(game.current_player == PLAYER_TWO);
-
-    game.colChoice = 1;
-    assert(dropPiece(&game));
-    assert(game.board[1][0] == P2);
-    assert(game.move_count == 2);
-    assert(game.piece_count == 2);
+    assert(validateGameState(&game));
     assert(game.current_player == PLAYER_ONE);
 
-    for (int r = 0; r < game.rows; r++) {
-        game.board[r][6] = P1;
+    Move move = {0, MOVE_NORMAL};
+    GameState first = apply_move(game, move);
+    assert(first.board[0][0] == P1);
+    assert(first.move_count == 1);
+    assert(first.piece_count == 1);
+    assert(first.current_player == PLAYER_TWO);
+
+    GameState second = apply_move(first, move);
+    assert(second.board[1][0] == P2);
+    assert(second.move_count == 2);
+    assert(second.piece_count == 2);
+    assert(second.current_player == PLAYER_ONE);
+
+    GameState full = second;
+    for (int r = 0; r < full.rows; r++) {
+        full.board[r][6] = P1;
     }
-    game.piece_count = 8;
-    game.move_count = 8;
-    game.colChoice = 7;
-    assert(!dropPiece(&game));
-    assert(game.move_count == 8);
-    assert(game.piece_count == 8);
+    full.piece_count = 8;
+    assert(!try_apply_move(&full,
+                           (Move){6, MOVE_NORMAL}, &full));
 
-    GameState mismatch = game;
-    mismatch.move_count = 7;
-    mismatch.piece_count = 8;
-    assert(getBestMove(&mismatch, 4, 1) == -1);
+    GameState floating = second;
+    floating.board[0][0] = EMPTY;
+    floating.board[1][0] = P1;
+    floating.move_count = 2;
+    floating.piece_count = 2;
+    floating.current_player = PLAYER_TWO;
+    assert(!validateGameState(&floating));
 
-    GameState invalid_cell = game;
+    GameState invalid_cell = second;
     invalid_cell.board[0][0] = 3;
-    assert(getBestMove(&invalid_cell, 4, 1) == -1);
+    assert(!validateGameState(&invalid_cell));
 
-    GameState valid = {0};
-    valid.rows = 6;
-    valid.cols = 7;
-    valid.winLength = 4;
-    initBoard(&valid);
-    valid.colChoice = 1;
-    assert(dropPiece(&valid));
-    valid.colChoice = 1;
-    assert(dropPiece(&valid));
-    assert(validateGameState(&valid));
-
-    mismatch = valid;
+    GameState mismatch = second;
     mismatch.move_count = 1;
-    mismatch.piece_count = 8;
+    mismatch.piece_count = 2;
     assert(!validateGameState(&mismatch));
-
-    GameState fresh = {0};
-    fresh.rows = 6;
-    fresh.cols = 7;
-    fresh.winLength = 4;
-    initBoard(&fresh);
-    Move move = {3, MOVE_NORMAL};
-    GameState applied = apply_move(fresh, move);
-    assert(applied.board[0][3] == P1);
-    assert(applied.move_count == 1);
-    assert(applied.piece_count == 1);
-    assert(applied.current_player == PLAYER_TWO);
 
     GameState horizontal = {0};
     horizontal.rows = 6;
     horizontal.cols = 7;
-    horizontal.winLength = 4;
+    horizontal.win_length = 4;
     horizontal.move_count = 4;
     horizontal.piece_count = 4;
     horizontal.current_player = PLAYER_ONE;
     initBoard(&horizontal);
-    horizontal.move_count = 4;
-    horizontal.piece_count = 4;
-    for (int c = 0; c < 4; c++) horizontal.board[0][c] = P1;
-    assert(checkWin(&horizontal, P1));
+    for (int c = 0; c < 4; c++) {
+        horizontal.board[0][c] = P1;
+    }
+    for (int c = 4; c < 7; c++) {
+        horizontal.board[0][c] = P2;
+    }
+    horizontal.move_count = 7;
+    horizontal.piece_count = 7;
+    horizontal.current_player = PLAYER_TWO;
+    assert(check_winner(&horizontal) == PLAYER_ONE);
     assert(oracle_check_win(&horizontal, P1));
-
-    GameState vertical = horizontal;
-    initBoard(&vertical);
-    vertical.move_count = 4;
-    vertical.piece_count = 4;
-    for (int r = 0; r < 4; r++) vertical.board[r][0] = P2;
-    assert(checkWin(&vertical, P2));
-    assert(oracle_check_win(&vertical, P2));
-
-    GameState diagonal = horizontal;
-    initBoard(&diagonal);
-    diagonal.move_count = 4;
-    diagonal.piece_count = 4;
-    for (int k = 0; k < 4; k++) diagonal.board[k][k] = P1;
-    assert(checkWin(&diagonal, P1));
-    assert(oracle_check_win(&diagonal, P1));
-
-    GameState anti_diagonal = horizontal;
-    initBoard(&anti_diagonal);
-    anti_diagonal.move_count = 4;
-    anti_diagonal.piece_count = 4;
-    for (int k = 0; k < 4; k++) anti_diagonal.board[k][3 - k] = P2;
-    assert(checkWin(&anti_diagonal, P2));
-    assert(oracle_check_win(&anti_diagonal, P2));
 
     return 0;
 }

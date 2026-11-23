@@ -21,7 +21,7 @@ int checkWin(GameState *game, int piece) {
         return 0;
     }
     uint8_t numericPiece = (uint8_t)piece;
-    int target = (game->winLength >= 4) ? game->winLength : 4;
+    int target = (game->win_length >= 4) ? game->win_length : 4;
     if (target > game->rows && target > game->cols) {
         return 0;
     }

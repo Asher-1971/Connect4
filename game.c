@@ -31,9 +31,9 @@ int loadGame(GameState *game)
     return 0;
 }
 
-void gameInputs(GameState *game)
+void gameInputs(GameState *game, GameConfig *config)
 {
-    if (!game) {
+    if (!game || !config) {
         return;
     }
 
@@ -42,18 +42,18 @@ void gameInputs(GameState *game)
     printf("2. Resume Game\n");
     printf("Enter your choice: ");
 
-    game->choice = readInt();
-    while (game->choice < 1 || game->choice > 2) {
-        if (game->choice == -1) {
+    config->menu_choice = readInt();
+    while (config->menu_choice < 1 || config->menu_choice > 2) {
+        if (config->menu_choice == -1) {
             return;
         }
         printf("Enter 1 or 2: ");
-        game->choice = readInt();
+        config->menu_choice = readInt();
     }
 
-    if (game->choice == 2) {
+    if (config->menu_choice == 2) {
         if (!loadGame(game)) {
-            game->choice = 0;
+            config->menu_choice = 0;
         }
         return;
     }
@@ -98,14 +98,14 @@ void gameInputs(GameState *game)
     }
 
     printf("Win length (4 or 5): ");
-    game->winLength = readInt();
-    while (game->winLength < 4 || game->winLength > 5 ||
-           (game->winLength > game->rows && game->winLength > game->cols)) {
-        if (game->winLength == -1) {
+    game->win_length = readInt();
+    while (game->win_length < 4 || game->win_length > 5 ||
+           (game->win_length > game->rows && game->win_length > game->cols)) {
+        if (game->win_length == -1) {
             return;
         }
         printf("Invalid win length. Enter 4 or 5: ");
-        game->winLength = readInt();
+        game->win_length = readInt();
     }
 
     printf("\nChoose game mode:\n");
@@ -113,38 +113,37 @@ void gameInputs(GameState *game)
     printf("2. Human vs AI\n");
     printf("Enter your choice: ");
 
-    game->aiOrNot = readInt();
-    while (game->aiOrNot < 1 || game->aiOrNot > 2) {
-        if (game->aiOrNot == -1) {
+    config->ai_mode = readInt();
+    while (config->ai_mode < 1 || config->ai_mode > 2) {
+        if (config->ai_mode == -1) {
             return;
         }
         printf("Enter 1 or 2: ");
-        game->aiOrNot = readInt();
+        config->ai_mode = readInt();
     }
 
-    if (game->aiOrNot == 2) {
+    if (config->ai_mode == 2) {
         printf("\nChoose AI difficulty:\n");
         printf("1. Easy\n");
         printf("2. Normal\n");
         printf("3. Hard\n");
         printf("Enter difficulty: ");
 
-        game->choice = readInt();
-        while (game->choice < AI_EASY || game->choice > AI_HARD) {
-            if (game->choice == -1) {
+        config->ai_difficulty = readInt();
+        while (config->ai_difficulty < AI_EASY || config->ai_difficulty > AI_HARD) {
+            if (config->ai_difficulty == -1) {
                 return;
             }
             printf("Enter 1, 2, or 3: ");
-            game->choice = readInt();
+            config->ai_difficulty = readInt();
         }
     }
 
-    game->win = 0;
-    game->tie = 0;
+    config->win = false;
+    config->tie = false;
     game->move_count = 0;
     game->piece_count = 0;
     game->current_player = PLAYER_ONE;
-    game->colChoice = 0;
     initBoard(game);
 }
 
@@ -173,24 +172,24 @@ static int promptColumn(GameState *game)
     return column;
 }
 
-void uiHumanvsHuman(GameState *game)
+void uiHumanvsHuman(GameState *game, GameConfig *config)
 {
-    if (!game) {
+    if (!game || !config) {
         return;
     }
 
-    while (game->win == 0 && game->tie == 0) {
+    while (!config->win && !config->tie) {
         printBoard(game);
 
         if (checkWin(game, P1) || checkWin(game, P2)) {
             char winner = checkWin(game, P1) ? 'X' : 'O';
             printf("Player %c wins!\n", winner);
-            game->win = 1;
+            config->win = true;
             break;
         }
         if (checkTie(game)) {
             printf("It's a draw!\n");
-            game->tie = 1;
+            config->tie = true;
             break;
         }
 
@@ -206,8 +205,8 @@ void uiHumanvsHuman(GameState *game)
             return;
         }
 
-        game->colChoice = column;
-        if (!dropPiece(game)) {
+        Move move = {column - 1, MOVE_NORMAL};
+        if (!try_apply_move(game, move, game)) {
             continue;
         }
 
@@ -215,13 +214,13 @@ void uiHumanvsHuman(GameState *game)
     }
 }
 
-void uiHumanvsAI(GameState *game)
+void uiHumanvsAI(GameState *game, GameConfig *config)
 {
-    if (!game) {
+    if (!game || !config) {
         return;
     }
 
-    int difficulty = game->choice;
+    int difficulty = config->ai_difficulty;
     if (difficulty < AI_EASY || difficulty > AI_HARD) {
         difficulty = AI_NORMAL;
     }
@@ -230,22 +229,22 @@ void uiHumanvsAI(GameState *game)
         srand((unsigned int)time(NULL));
     }
 
-    while (game->win == 0 && game->tie == 0) {
+    while (!config->win && !config->tie) {
         printBoard(game);
 
         if (checkWin(game, P1)) {
             printf("You win!\n");
-            game->win = 1;
+            config->win = true;
             break;
         }
         if (checkWin(game, P2)) {
             printf("AI wins!\n");
-            game->win = 1;
+            config->win = true;
             break;
         }
         if (checkTie(game)) {
             printf("It's a draw!\n");
-            game->tie = 1;
+            config->tie = true;
             break;
         }
 
@@ -260,7 +259,8 @@ void uiHumanvsAI(GameState *game)
                 printf("Exiting...\n");
                 return;
             }
-            game->colChoice = column;
+            Move move = {column - 1, MOVE_NORMAL};
+            if (!try_apply_move(game, move, game)) continue;
         } else {
             printf("AI turn (O):\n");
 
@@ -272,23 +272,16 @@ void uiHumanvsAI(GameState *game)
                         valid[validCount++] = c + 1;
                     }
                 }
-                game->colChoice = validCount > 0
+                int column = validCount > 0
                     ? valid[rand() % validCount]
                     : -1;
+                Move move = {column - 1, MOVE_NORMAL};
+                if (column > 0 && !try_apply_move(game, move, game)) continue;
             } else {
                 int timeBudget = (difficulty == AI_NORMAL) ? 100 : 1000;
-                game->colChoice = getBestMove(
-                    game, game->winLength, timeBudget);
+                Move move = find_best_move(game, timeBudget);
+                if (!try_apply_move(game, move, game)) continue;
             }
-        }
-
-        if (game->colChoice < 1 || game->colChoice > game->cols ||
-            game->board[game->rows - 1][game->colChoice - 1] != EMPTY) {
-            continue;
-        }
-
-        if (!dropPiece(game)) {
-            continue;
         }
 
         clearScreen();
@@ -298,16 +291,17 @@ void uiHumanvsAI(GameState *game)
 int main(void)
 {
     GameState game = {0};
-    gameInputs(&game);
+    GameConfig config = {0};
+    gameInputs(&game, &config);
 
-    if (game.choice == 0) {
+    if (config.menu_choice == 0) {
         return 0;
     }
 
-    if (game.aiOrNot == 1) {
-        uiHumanvsHuman(&game);
-    } else if (game.aiOrNot == 2) {
-        uiHumanvsAI(&game);
+    if (config.ai_mode == 1) {
+        uiHumanvsHuman(&game, &config);
+    } else if (config.ai_mode == 2) {
+        uiHumanvsAI(&game, &config);
     }
 
     return 0;

@@ -38,8 +38,8 @@ static bool now_ms(uint64_t *result) {
 bool validateGameState(const GameState *s) {
     if (!s || s->rows < 1 || s->rows > MAX_DIM ||
         s->cols < 1 || s->cols > MAX_DIM ||
-        (s->winLength != 4 && s->winLength != 5) ||
-        (s->winLength > s->rows && s->winLength > s->cols) ||
+        (s->win_length != 4 && s->win_length != 5) ||
+        (s->win_length > s->rows && s->win_length > s->cols) ||
         (s->current_player != 1 && s->current_player != 2) ||
         s->move_count < 0 || s->move_count > s->rows * s->cols ||
         s->piece_count < 0 || s->piece_count > s->move_count ||
@@ -308,7 +308,7 @@ int check_winner(const GameState *s) {
 
     bool p1_won = false;
     bool p2_won = false;
-    int K = s->winLength;
+    int K = s->win_length;
 
     for (int r = 0; r < s->rows; r++) {
         for (int c = 0; c < s->cols; c++) {
@@ -418,7 +418,7 @@ int evaluate_board(const GameState *s) {
 
     int me = s->current_player;
     int opp = (me == 1) ? 2 : 1;
-    int K = s->winLength;
+    int K = s->win_length;
     int score = 0;
 
     /* 1. Center-column proximity bonus scaled dynamically to board width */

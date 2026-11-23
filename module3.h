@@ -36,6 +36,7 @@ static inline int getBestMove(const GameState *fe, int win_length, int time_budg
     if (!fe || fe->rows <= 0 || fe->rows > MAX_DIM ||
         fe->cols <= 0 || fe->cols > MAX_DIM ||
         (win_length != 4 && win_length != 5) ||
+        fe->win_length != win_length ||
         (win_length > fe->rows && win_length > fe->cols) ||
         (fe->current_player != PLAYER_ONE && fe->current_player != PLAYER_TWO) ||
         fe->move_count < 0 || fe->move_count > fe->rows * fe->cols ||
@@ -44,10 +45,7 @@ static inline int getBestMove(const GameState *fe, int win_length, int time_budg
         return -1;
     }
 
-    GameState ai = *fe;
-    ai.winLength = win_length;
-
-    Move best = find_best_move(&ai, time_budget_ms);
+    Move best = find_best_move(fe, time_budget_ms);
     if (best.col < 0 || best.col >= fe->cols) {
         return -1;
     }

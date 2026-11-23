@@ -29,28 +29,20 @@ typedef struct {
 typedef struct {
     int rows;
     int cols;
-    int winLength;
+    int win_length;
     uint8_t board[MAX_SIZE][MAX_SIZE];
     int current_player;
     int move_count;
     int piece_count;
     bool bomb_used[MAX_PLAYERS + 1];
     bool anvil_used[MAX_PLAYERS + 1];
-
-    int choice;
-    int aiOrNot;
-    int win;
-    int tie;
-    int colChoice;
 } GameState;
 
 /* Functions for start.c */
 void printBoard(GameState *game);
 void initBoard(GameState *game);
-int dropPiece(GameState *game);
 int readInt(void);
 int validateBoardSize(int n);
-int mainstart(void);
 bool validateGameState(const GameState *game);
 
 /* Functions for win.c */
