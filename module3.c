@@ -41,7 +41,8 @@ static bool valid_state(const AIGameState *s) {
         s->win_length < 4 || s->win_length > MAX_DIM ||
         (s->win_length > s->rows && s->win_length > s->cols) ||
         (s->current_player != 1 && s->current_player != 2) ||
-        s->move_count < 0 || s->move_count > s->rows * s->cols) {
+        s->move_count < 0 || s->move_count > s->rows * s->cols ||
+        s->piece_count < 0 || s->piece_count > s->rows * s->cols) {
         return false;
     }
 
@@ -70,7 +71,7 @@ static bool valid_state(const AIGameState *s) {
             }
         }
     }
-    if (piece_count != s->move_count) {
+    if (piece_count != s->piece_count) {
         return false;
     }
     if (p1_count < p2_count || p1_count - p2_count > 1) {
@@ -251,6 +252,15 @@ bool try_apply_move(const AIGameState *s, Move m, AIGameState *out) {
     }
 
     next.move_count++;
+    int next_piece_count = 0;
+    for (int r = 0; r < next.rows; r++) {
+        for (int c = 0; c < next.cols; c++) {
+            if (next.board[r][c] != 0) {
+                next_piece_count++;
+            }
+        }
+    }
+    next.piece_count = next_piece_count;
     next.current_player = (p == 1) ? 2 : 1;
     *out = next;
     return true;

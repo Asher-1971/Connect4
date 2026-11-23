@@ -146,7 +146,6 @@ void gameInputs(GameState *game)
     game->current_player = PLAYER_ONE;
     game->colChoice = 0;
     initBoard(game);
-    initBoardColsFilled(game);
 }
 
 static int promptColumn(GameState *game)
@@ -162,7 +161,8 @@ static int promptColumn(GameState *game)
     }
 
     while (column < 0 || column > game->cols ||
-           (column > 0 && game->boardColsFilled[column - 1] >= game->rows)) {
+           (column > 0 &&
+            game->board[game->rows - 1][column - 1] != EMPTY)) {
         printf("Invalid or full column. Enter 0-%d: ", game->cols);
         column = readInt();
         if (column == -1) {
@@ -268,7 +268,7 @@ void uiHumanvsAI(GameState *game)
                 int valid[20];
                 int validCount = 0;
                 for (int c = 0; c < game->cols; c++) {
-                    if (game->boardColsFilled[c] < game->rows) {
+                    if (game->board[game->rows - 1][c] == EMPTY) {
                         valid[validCount++] = c + 1;
                     }
                 }
@@ -283,7 +283,7 @@ void uiHumanvsAI(GameState *game)
         }
 
         if (game->colChoice < 1 || game->colChoice > game->cols ||
-            game->boardColsFilled[game->colChoice - 1] >= game->rows) {
+            game->board[game->rows - 1][game->colChoice - 1] != EMPTY) {
             continue;
         }
 

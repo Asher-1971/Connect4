@@ -45,6 +45,7 @@ typedef struct AIState {
     int win_length;        /* 4 for Connect-4, 5 for Connect-5 */
     int current_player;    /* 1 or 2 */
     int move_count;
+    int piece_count;
     bool bomb_used[3];     /* Indexed by player (1 or 2) */
     bool anvil_used[3];    /* Indexed by player (1 or 2) */
 } AIGameState;
@@ -73,7 +74,7 @@ Move find_best_move(const AIGameState *root, int time_budget_ms);
 
 /*
  * Seamless Bridge for Frontend (header.h / start.c):
- * Converts top-down char board ('.', 'X', 'O') to bottom-up AIGameState.
+ * Converts the canonical numeric bottom-up GameState board to AIGameState.
  * Returns a 1-indexed column (1..cols), or -1 if no legal move exists.
  */
 #ifdef HEADER_H
@@ -94,6 +95,7 @@ static inline int getBestMove(const GameState *fe, int win_length, int time_budg
     ai.win_length = win_length;
     ai.current_player = fe->current_player;
     ai.move_count = fe->move_count;
+    ai.piece_count = fe->piece_count;
 
     int pieces = 0;
     for (int r = 0; r < fe->rows; r++) {
@@ -112,7 +114,7 @@ static inline int getBestMove(const GameState *fe, int win_length, int time_budg
             }
         }
     }
-    if (pieces != fe->piece_count || pieces != fe->move_count) {
+    if (pieces != fe->piece_count) {
         return -1;
     }
 

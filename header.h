@@ -37,8 +37,6 @@ typedef struct {
     bool bomb_used[MAX_PLAYERS + 1];
     bool anvil_used[MAX_PLAYERS + 1];
 
-    /* Terminal UI state retained during migration. */
-    int boardColsFilled[MAX_SIZE];
     int choice;
     int aiOrNot;
     int win;
@@ -49,7 +47,6 @@ typedef struct {
 /* Functions for start.c */
 void printBoard(GameState *game);
 void initBoard(GameState *game);
-void initBoardColsFilled(GameState *game);
 int dropPiece(GameState *game);
 int readInt(void);
 int validateBoardSize(int n);
