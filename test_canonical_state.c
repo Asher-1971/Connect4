@@ -26,6 +26,21 @@ static int oracle_check_win(const GameState *game, int piece) {
 }
 
 int main(void) {
+    assert(!dropPiece(NULL));
+
+    GameState invalid_dimensions = {0};
+    invalid_dimensions.rows = 21;
+    invalid_dimensions.cols = 7;
+    initBoard(&invalid_dimensions);
+    assert(invalid_dimensions.piece_count == 0);
+    assert(invalid_dimensions.move_count == 0);
+    invalid_dimensions.rows = 6;
+    invalid_dimensions.cols = 7;
+    invalid_dimensions.winLength = 4;
+    invalid_dimensions.rows = 21;
+    invalid_dimensions.colChoice = 1;
+    assert(!dropPiece(&invalid_dimensions));
+
     GameState game = {0};
     game.rows = 6;
     game.cols = 7;
@@ -76,6 +91,34 @@ int main(void) {
     GameState invalid_cell = game;
     invalid_cell.board[0][0] = 3;
     assert(getBestMove(&invalid_cell, 4, 1) == -1);
+
+    GameState valid = {0};
+    valid.rows = 6;
+    valid.cols = 7;
+    valid.winLength = 4;
+    initBoard(&valid);
+    valid.colChoice = 1;
+    assert(dropPiece(&valid));
+    valid.colChoice = 1;
+    assert(dropPiece(&valid));
+    assert(validateGameState(&valid));
+
+    mismatch = valid;
+    mismatch.move_count = 1;
+    mismatch.piece_count = 8;
+    assert(!validateGameState(&mismatch));
+
+    GameState fresh = {0};
+    fresh.rows = 6;
+    fresh.cols = 7;
+    fresh.winLength = 4;
+    initBoard(&fresh);
+    Move move = {3, MOVE_NORMAL};
+    GameState applied = apply_move(fresh, move);
+    assert(applied.board[0][3] == P1);
+    assert(applied.move_count == 1);
+    assert(applied.piece_count == 1);
+    assert(applied.current_player == PLAYER_TWO);
 
     GameState horizontal = {0};
     horizontal.rows = 6;

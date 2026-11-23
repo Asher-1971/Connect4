@@ -25,7 +25,10 @@ void printBoard(GameState *game){
 }
 
 void initBoard(GameState *game){
-    if (!game) return;
+    if (!game || game->rows < MIN_SIZE || game->rows > MAX_SIZE ||
+        game->cols < MIN_SIZE || game->cols > MAX_SIZE) {
+        return;
+    }
     for (int i = 0; i < game->rows; i++) {
         for(int j = 0; j < game->cols; j++){
             game->board[i][j] = EMPTY;
@@ -41,7 +44,9 @@ void initBoard(GameState *game){
 }
 
 int dropPiece(GameState *game){
-    if (!game || game->colChoice < 1 || game->colChoice > game->cols) {
+    if (!game || game->rows < MIN_SIZE || game->rows > MAX_SIZE ||
+        game->cols < MIN_SIZE || game->cols > MAX_SIZE ||
+        game->colChoice < 1 || game->colChoice > game->cols) {
         return 0;
     }
 

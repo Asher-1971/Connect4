@@ -35,11 +35,11 @@ static bool now_ms(uint64_t *result) {
 #endif
 }
 
-static bool valid_state(const AIGameState *s) {
+bool validateGameState(const GameState *s) {
     if (!s || s->rows < 1 || s->rows > MAX_DIM ||
         s->cols < 1 || s->cols > MAX_DIM ||
-        s->win_length < 4 || s->win_length > MAX_DIM ||
-        (s->win_length > s->rows && s->win_length > s->cols) ||
+        (s->winLength != 4 && s->winLength != 5) ||
+        (s->winLength > s->rows && s->winLength > s->cols) ||
         (s->current_player != 1 && s->current_player != 2) ||
         s->move_count < 0 || s->move_count > s->rows * s->cols ||
         s->piece_count < 0 || s->piece_count > s->move_count ||
@@ -108,8 +108,8 @@ static void build_center_out_order(int cols, int order[MAX_DIM]) {
  * Guards MOVE_NORMAL (and v2 MOVE_BOMB) with !col_full without skipping
  * full-column checks for v2 MOVE_ANVIL.
  */
-int generate_moves(const AIGameState *s, Move moves[MAX_DIM * 3]) {
-    if (!valid_state(s) || !moves || check_winner(s) != 0) {
+int generate_moves(const GameState *s, Move moves[MAX_DIM * 3]) {
+    if (!validateGameState(s) || !moves || check_winner(s) != 0) {
         return 0;
     }
 
@@ -152,7 +152,7 @@ int generate_moves(const AIGameState *s, Move moves[MAX_DIM * 3]) {
 }
 
 /* Compacts every column downward (row 0 = bottom) after Bomb explosions */
-void apply_gravity(AIGameState *s) {
+void apply_gravity(GameState *s) {
     if (!s || s->rows <= 0 || s->rows > MAX_DIM ||
         s->cols <= 0 || s->cols > MAX_DIM) {
         return;
@@ -178,11 +178,11 @@ void apply_gravity(AIGameState *s) {
  * Validates and applies a move into *out.
  * Returns true if the move was legal and applied; false if invalid/full (state unchanged).
  */
-bool try_apply_move(const AIGameState *s, Move m, AIGameState *out) {
+bool try_apply_move(const GameState *s, Move m, GameState *out) {
     if (!s || !out) {
         return false;
     }
-    if (!valid_state(s)) {
+    if (!validateGameState(s)) {
         return false;
     }
     if (check_winner(s) != 0) {
@@ -198,7 +198,7 @@ bool try_apply_move(const AIGameState *s, Move m, AIGameState *out) {
         return false;
     }
 
-    AIGameState next = *s;
+    GameState next = *s;
     bool applied = false;
 
     if (m.type == MOVE_NORMAL) {
@@ -268,8 +268,8 @@ bool try_apply_move(const AIGameState *s, Move m, AIGameState *out) {
 }
 
 /* Copy-Make state transition: returns unchanged state if move is illegal/full */
-AIGameState apply_move(AIGameState s, Move m) {
-    AIGameState next;
+GameState apply_move(GameState s, Move m) {
+    GameState next;
     if (try_apply_move(&s, m, &next)) {
         return next;
     }
@@ -280,7 +280,7 @@ AIGameState apply_move(AIGameState s, Move m) {
  * Scans the entire board for both players to detect simultaneous double-wins.
  * Returns: 0 = ongoing, 1 = Player 1 wins, 2 = Player 2 wins, 3 = simultaneous draw.
  */
-int check_winner(const AIGameState *s) {
+int check_winner(const GameState *s) {
     static const int dirs[4][2] = {
         {0,  1},  /* Horizontal */
         {1,  0},  /* Vertical */
@@ -288,13 +288,13 @@ int check_winner(const AIGameState *s) {
         {1, -1}   /* Diagonal up-left */
     };
 
-    if (!valid_state(s)) {
+    if (!validateGameState(s)) {
         return 0;
     }
 
     bool p1_won = false;
     bool p2_won = false;
-    int K = s->win_length;
+    int K = s->winLength;
 
     for (int r = 0; r < s->rows; r++) {
         for (int c = 0; c < s->cols; c++) {
@@ -390,7 +390,7 @@ static inline int score_window(int my_cnt, int opp_cnt, int K) {
  * Generalized K-window static evaluator strictly from s->current_player's view.
  * Anti-symmetric across players so Negamax sign flips remain exact.
  */
-int evaluate_board(const AIGameState *s) {
+int evaluate_board(const GameState *s) {
     static const int dirs[4][2] = {
         {0,  1},
         {1,  0},
@@ -398,13 +398,13 @@ int evaluate_board(const AIGameState *s) {
         {1, -1}
     };
 
-    if (!valid_state(s)) {
+    if (!validateGameState(s)) {
         return 0;
     }
 
     int me = s->current_player;
     int opp = (me == 1) ? 2 : 1;
-    int K = s->win_length;
+    int K = s->winLength;
     int score = 0;
 
     /* 1. Center-column proximity bonus scaled dynamically to board width */
@@ -460,8 +460,8 @@ int evaluate_board(const AIGameState *s) {
 }
 
 /* Depth-limited Negamax with Alpha-Beta pruning and periodic timer checks */
-int negamax(const AIGameState *s, int depth, int alpha, int beta, SearchContext *ctx) {
-    if (!valid_state(s) || !ctx) {
+int negamax(const GameState *s, int depth, int alpha, int beta, SearchContext *ctx) {
+    if (!validateGameState(s) || !ctx) {
         return 0;
     }
     if ((ctx->nodes++ & 1023ULL) == 0ULL) {
@@ -496,7 +496,7 @@ int negamax(const AIGameState *s, int depth, int alpha, int beta, SearchContext 
 
     int best_val = -INF_SCORE;
     for (int i = 0; i < num_moves; i++) {
-        AIGameState next;
+        GameState next;
         if (!try_apply_move(s, moves[i], &next)) {
             continue;
         }
@@ -538,9 +538,9 @@ static void promote_pv_move(Move moves[MAX_DIM * 3], int num_moves, Move pv) {
  * Iterative Deepening Negamax root driver with wall-clock time budget.
  * Discards incomplete depths on timeout and returns the last fully completed PV move.
  */
-Move find_best_move(const AIGameState *root, int time_budget_ms) {
+Move find_best_move(const GameState *root, int time_budget_ms) {
     Move invalid = { -1, MOVE_NORMAL };
-    if (!valid_state(root) || check_winner(root) != 0) {
+    if (!validateGameState(root) || check_winner(root) != 0) {
         return invalid;
     }
 
@@ -583,7 +583,7 @@ Move find_best_move(const AIGameState *root, int time_budget_ms) {
         Move iter_best_move = root_moves[0];
 
         for (int i = 0; i < num_moves; i++) {
-            AIGameState next;
+            GameState next;
             if (!try_apply_move(root, root_moves[i], &next)) {
                 continue;
             }

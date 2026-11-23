@@ -51,6 +51,7 @@ int dropPiece(GameState *game);
 int readInt(void);
 int validateBoardSize(int n);
 int mainstart(void);
+bool validateGameState(const GameState *game);
 
 /* Functions for win.c */
 int countInLine(GameState *game, int r, int c, int dr, int dc, int piece);
