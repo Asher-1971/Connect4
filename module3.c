@@ -107,7 +107,7 @@ static void build_center_out_order(int cols, int order[MAX_DIM]) {
  * full-column checks for v2 MOVE_ANVIL.
  */
 int generate_moves(const AIGameState *s, Move moves[MAX_DIM * 3]) {
-    if (!valid_state(s) || !moves) {
+    if (!valid_state(s) || !moves || check_winner(s) != 0) {
         return 0;
     }
 
