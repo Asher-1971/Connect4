@@ -2,6 +2,7 @@
 #include<string.h>
 #include<unistd.h>
 #include "header.h"
+#include "module3.h"
 
 #define MAX_ROWS 20
 #define MAX_COLS 20
@@ -111,7 +112,7 @@ void uiHumanvsHuman(GameState *game)
     }
     if(contChoice!=0)
     {
-      //input function
+      //input function mainstart()
     }
 
     clearScreen();
