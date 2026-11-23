@@ -85,7 +85,8 @@ static inline int getBestMove(const GameState *fe, int win_length, int time_budg
         (win_length > fe->rows && win_length > fe->cols) ||
         (fe->current_player != PLAYER_ONE && fe->current_player != PLAYER_TWO) ||
         fe->move_count < 0 || fe->move_count > fe->rows * fe->cols ||
-        fe->piece_count < 0 || fe->piece_count > fe->rows * fe->cols) {
+        fe->piece_count < 0 || fe->piece_count > fe->move_count ||
+        fe->piece_count > fe->rows * fe->cols) {
         return -1;
     }
 

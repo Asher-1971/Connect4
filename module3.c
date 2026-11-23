@@ -42,7 +42,8 @@ static bool valid_state(const AIGameState *s) {
         (s->win_length > s->rows && s->win_length > s->cols) ||
         (s->current_player != 1 && s->current_player != 2) ||
         s->move_count < 0 || s->move_count > s->rows * s->cols ||
-        s->piece_count < 0 || s->piece_count > s->rows * s->cols) {
+        s->piece_count < 0 || s->piece_count > s->move_count ||
+        s->piece_count > s->rows * s->cols) {
         return false;
     }
 

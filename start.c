@@ -34,6 +34,10 @@ void initBoard(GameState *game){
     game->piece_count = 0;
     game->move_count = 0;
     game->current_player = PLAYER_ONE;
+    for (int i = 0; i <= MAX_PLAYERS; i++) {
+        game->bomb_used[i] = false;
+        game->anvil_used[i] = false;
+    }
 }
 
 int dropPiece(GameState *game){
