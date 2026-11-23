@@ -19,17 +19,19 @@ extern "C" {
 #define MAX_DIM 20
 #define ENABLE_POWERUPS 0  /* Flip to 1 in v2 to enable Bomb & Anvil moves */
 
-/* Move Abstractions (v1 active + v2 power-up hooks) */
+/* Move abstractions are shared with the canonical frontend GameState. */
+#ifndef HEADER_H
 typedef enum {
     MOVE_NORMAL = 0,
-    MOVE_BOMB   = 1,
-    MOVE_ANVIL  = 2
+    MOVE_BOMB = 1,
+    MOVE_ANVIL = 2
 } MoveType;
 
 typedef struct {
     int col;
     MoveType type;
 } Move;
+#endif
 
 /*
  * Flat, pointer-free Copy-Make state (~428 bytes).
@@ -80,8 +82,9 @@ static inline int getBestMove(const GameState *fe, int win_length, int time_budg
         fe->cols <= 0 || fe->cols > MAX_DIM ||
         win_length < 4 || win_length > MAX_DIM ||
         (win_length > fe->rows && win_length > fe->cols) ||
-        (fe->turn != 1 && fe->turn != 2) ||
-        fe->moves < 0 || fe->moves > fe->rows * fe->cols) {
+        (fe->current_player != PLAYER_ONE && fe->current_player != PLAYER_TWO) ||
+        fe->move_count < 0 || fe->move_count > fe->rows * fe->cols ||
+        fe->piece_count < 0 || fe->piece_count > fe->rows * fe->cols) {
         return -1;
     }
 
@@ -89,28 +92,27 @@ static inline int getBestMove(const GameState *fe, int win_length, int time_budg
     ai.rows = fe->rows;
     ai.cols = fe->cols;
     ai.win_length = win_length;
-    ai.current_player = fe->turn;
-    ai.move_count = fe->moves;
+    ai.current_player = fe->current_player;
+    ai.move_count = fe->move_count;
 
     int pieces = 0;
     for (int r = 0; r < fe->rows; r++) {
-        int ai_row = fe->rows - 1 - r; /* Flip top-down frontend row to bottom-up */
         for (int c = 0; c < fe->cols; c++) {
-            char cell = fe->board[r][c];
-            if (cell == P1) {
-                ai.board[ai_row][c] = 1;
+            uint8_t cell = fe->board[r][c];
+            if (cell == PLAYER_ONE) {
+                ai.board[r][c] = PLAYER_ONE;
                 pieces++;
-            } else if (cell == P2) {
-                ai.board[ai_row][c] = 2;
+            } else if (cell == PLAYER_TWO) {
+                ai.board[r][c] = PLAYER_TWO;
                 pieces++;
             } else if (cell == EMPTY) {
-                ai.board[ai_row][c] = 0;
+                ai.board[r][c] = PLAYER_NONE;
             } else {
                 return -1;
             }
         }
     }
-    if (pieces != fe->moves) {
+    if (pieces != fe->piece_count || pieces != fe->move_count) {
         return -1;
     }
 

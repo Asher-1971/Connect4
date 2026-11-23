@@ -180,23 +180,23 @@ int mainstart(void){
     initBoard(&game);
     printBoard(&game);
 
-    game.turn = 1; // 1 for player 1, 2 for player 2
+    game.current_player = PLAYER_ONE;
 
     // GAME LOOOPP!!!!!!
     switch(game.aiOrNot){
         case 2:
             while (game.win == 0 && game.tie == 0) {
-                printf("player %d's turn\n", game.turn);
+                printf("player %d's turn\n", game.current_player);
                 printf("enter the column number to add a piece\n");
                 game.colChoice = readInt();
                 if (game.colChoice == -1) return 0;
-                while (game.colChoice < 1 || game.colChoice > game.cols || game.boardColsFilled[game.colChoice-1] < 0) {
+                while (game.colChoice < 1 || game.colChoice > game.cols ||
+                       game.boardColsFilled[game.colChoice - 1] >= game.rows) {
                     printf("invalid or full column, choose another: ");
                     game.colChoice = readInt();
                     if (game.colChoice == -1) return 0;
                 }
                 dropPiece(&game);
-                game.moves++;
                 printBoard(&game);
                 if (checkWin(&game, P1)) {
                     printf("player 1 wins!\n");
@@ -213,13 +213,13 @@ int mainstart(void){
             break;
         case 1:
             while (game.win == 0 && game.tie == 0) {
-                if (game.turn == 1) {
+                if (game.current_player == PLAYER_ONE) {
                     printf("your turn\n");
                     printf("enter the column number to add a piece\n");
                     game.colChoice = readInt();
                     if (game.colChoice == -1) return 0;
                     while (game.colChoice < 1 || game.colChoice > game.cols ||
-                           game.boardColsFilled[game.colChoice - 1] < 0) {
+                           game.boardColsFilled[game.colChoice - 1] >= game.rows) {
                         printf("invalid or full column, choose another: ");
                         game.colChoice = readInt();
                         if (game.colChoice == -1) return 0;
@@ -228,7 +228,7 @@ int mainstart(void){
                     printf("AI is choosing a column...\n");
                     game.colChoice = getBestMove(&game, game.winLength, 100);
                     if (game.colChoice < 1 || game.colChoice > game.cols ||
-                        game.boardColsFilled[game.colChoice - 1] < 0) {
+                        game.boardColsFilled[game.colChoice - 1] >= game.rows) {
                         break;
                     }
                 }
@@ -236,7 +236,6 @@ int mainstart(void){
                 if (!dropPiece(&game)) {
                     break;
                 }
-                game.moves++;
                 printBoard(&game);
 
                 if (checkWin(&game, P1)) {

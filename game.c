@@ -162,7 +162,7 @@ static int promptColumn(GameState *game)
     }
 
     while (column < 0 || column > game->cols ||
-           (column > 0 && game->boardColsFilled[column - 1] < 0)) {
+           (column > 0 && game->boardColsFilled[column - 1] >= game->rows)) {
         printf("Invalid or full column. Enter 0-%d: ", game->cols);
         column = readInt();
         if (column == -1) {
@@ -183,7 +183,7 @@ void uiHumanvsHuman(GameState *game)
         printBoard(game);
 
         if (checkWin(game, P1) || checkWin(game, P2)) {
-            char winner = checkWin(game, P1) ? P1 : P2;
+            char winner = checkWin(game, P1) ? 'X' : 'O';
             printf("Player %c wins!\n", winner);
             game->win = 1;
             break;
@@ -211,7 +211,6 @@ void uiHumanvsHuman(GameState *game)
             continue;
         }
 
-        game->moves++;
         clearScreen();
     }
 }
@@ -263,7 +262,7 @@ void uiHumanvsAI(GameState *game)
             }
             game->colChoice = column;
         } else {
-            printf("AI turn (%c):\n", P2);
+            printf("AI turn (O):\n");
 
             if (difficulty == AI_EASY) {
                 int valid[20];
@@ -284,7 +283,7 @@ void uiHumanvsAI(GameState *game)
         }
 
         if (game->colChoice < 1 || game->colChoice > game->cols ||
-            game->boardColsFilled[game->colChoice - 1] < 0) {
+            game->boardColsFilled[game->colChoice - 1] >= game->rows) {
             continue;
         }
 
@@ -292,7 +291,6 @@ void uiHumanvsAI(GameState *game)
             continue;
         }
 
-        game->moves++;
         clearScreen();
     }
 }

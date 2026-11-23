@@ -1,6 +1,6 @@
 #include "header.h"
 
-int countInLine(GameState *game, int r, int c, int dr, int dc, char piece) {
+int countInLine(GameState *game, int r, int c, int dr, int dc, int piece) {
     if (!game || game->rows < 1 || game->rows > MAX_SIZE ||
         game->cols < 1 || game->cols > MAX_SIZE) {
         return 0;
@@ -14,13 +14,13 @@ int countInLine(GameState *game, int r, int c, int dr, int dc, char piece) {
     return 1 + countInLine(game, r + dr, c + dc, dr, dc, piece);
 }
 
-int checkWin(GameState *game, char piece) {
+int checkWin(GameState *game, int piece) {
     if (!game || game->rows < 1 || game->rows > MAX_SIZE ||
         game->cols < 1 || game->cols > MAX_SIZE ||
         (piece != P1 && piece != P2)) {
         return 0;
     }
-    uint8_t numericPiece = (piece == 'X' || piece == P1) ? P1 : P2;
+    uint8_t numericPiece = (uint8_t)piece;
     int target = (game->winLength >= 4) ? game->winLength : 4;
     if (target > game->rows && target > game->cols) {
         return 0;

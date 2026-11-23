@@ -56,8 +56,8 @@ int validateBoardSize(int n);
 int mainstart(void);
 
 /* Functions for win.c */
-int countInLine(GameState *game, int r, int c, int dr, int dc, char piece);
-int checkWin(GameState *game, char piece);
+int countInLine(GameState *game, int r, int c, int dr, int dc, int piece);
+int checkWin(GameState *game, int piece);
 int checkTie(GameState *game);
 
 #endif
