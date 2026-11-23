@@ -1,4 +1,8 @@
 #include <stdio.h>
+#include <stdlib.h>
+#include <errno.h>
+#include <limits.h>
+#include <string.h>
 #include "header.h"
 #include "module3.h"
 
@@ -58,16 +62,42 @@ int dropPiece(GameState *game){
 }
 
 int readInt(void){
-    int x;
-    while (scanf("%d", &x) != 1) {
-        int ch;
-        while ((ch = getchar()) != '\n' && ch != EOF);
-        if (ch == EOF) {
+    char input[128];
+
+    while (1) {
+        if (!fgets(input, sizeof input, stdin)) {
             return -1;
         }
-        printf("enter a number: ");
+
+        if (!strchr(input, '\n')) {
+            int ch;
+            while ((ch = getchar()) != '\n' && ch != EOF);
+            if (ch == EOF) {
+                return -1;
+            }
+            printf("enter a valid number: ");
+            continue;
+        }
+
+        errno = 0;
+        char *end;
+        long value = strtol(input, &end, 10);
+        if (errno == ERANGE || value < INT_MIN || value > INT_MAX ||
+            end == input) {
+            printf("enter a valid number: ");
+            continue;
+        }
+
+        while (*end == ' ' || *end == '\t') {
+            end++;
+        }
+        if (*end != '\n' && *end != '\r' && *end != '\0') {
+            printf("enter a valid number: ");
+            continue;
+        }
+
+        return (int)value;
     }
-    return x;
 }
 
 int validateBoardSize(int n){
