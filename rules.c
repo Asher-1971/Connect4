@@ -1,4 +1,5 @@
 #include "rules.h"
+#include <limits.h>
 
 bool rules_validate_state(const GameState *state) {
     if (!state || state->rows < MIN_SIZE || state->rows > MAX_SIZE ||
@@ -6,7 +7,12 @@ bool rules_validate_state(const GameState *state) {
         (state->win_length != 4 && state->win_length != 5) ||
         (state->win_length > state->rows && state->win_length > state->cols) ||
         (state->current_player != PLAYER_ONE && state->current_player != PLAYER_TWO) ||
-        state->move_count < 0 || state->move_count > state->rows * state->cols ||
+        state->move_count < 0 ||
+#if ENABLE_POWERUPS
+        state->move_count > state->rows * state->cols + 2 * MAX_PLAYERS ||
+#else
+        state->move_count > state->rows * state->cols ||
+#endif
         state->piece_count < 0 || state->piece_count > state->move_count ||
         state->piece_count > state->rows * state->cols) {
         return false;
@@ -82,8 +88,7 @@ bool rules_apply_move(const GameState *state, Move move, GameState *out) {
     if (!state || !out || !rules_validate_state(state)) {
         return false;
     }
-    if (rules_is_terminal(state) ||
-        move.col < 0 || move.col >= state->cols) {
+    if (!rules_is_valid_move(state, move)) {
         *out = *state;
         return false;
     }
@@ -93,10 +98,6 @@ bool rules_apply_move(const GameState *state, Move move, GameState *out) {
     bool applied = false;
 
     if (move.type == MOVE_NORMAL) {
-        if (next.board[next.rows - 1][move.col] != EMPTY) {
-            *out = *state;
-            return false;
-        }
         for (int r = 0; r < next.rows; r++) {
             if (next.board[r][move.col] == EMPTY) {
                 next.board[r][move.col] = (uint8_t)p;
@@ -108,7 +109,7 @@ bool rules_apply_move(const GameState *state, Move move, GameState *out) {
 #if ENABLE_POWERUPS
     else if (move.type == MOVE_BOMB) {
         if (!next.bomb_used[p]) {
-            int land_row = -1;
+            int land_row = next.rows - 1;
             for (int r = 0; r < next.rows; r++) {
                 if (next.board[r][move.col] == EMPTY) {
                     land_row = r;
@@ -146,6 +147,10 @@ bool rules_apply_move(const GameState *state, Move move, GameState *out) {
         return false;
     }
 
+    if (next.move_count >= INT_MAX) {
+        *out = *state;
+        return false;
+    }
     next.move_count++;
     int piece_count = 0;
     for (int r = 0; r < next.rows; r++) {
@@ -230,6 +235,19 @@ bool rules_is_draw(const GameState *state) {
     int winner = rules_check_winner(state);
     if (winner == 3) return true;
     if (winner != 0) return false;
+#if ENABLE_POWERUPS
+    for (int c = 0; c < state->cols; c++) {
+        Move moves[] = {
+            {c, MOVE_NORMAL},
+            {c, MOVE_BOMB},
+            {c, MOVE_ANVIL}
+        };
+        for (size_t i = 0; i < sizeof moves / sizeof moves[0]; i++) {
+            if (rules_is_valid_move(state, moves[i])) return false;
+        }
+    }
+    return true;
+#else
 
     for (int r = 0; r < state->rows; r++) {
         for (int c = 0; c < state->cols; c++) {
@@ -237,9 +255,15 @@ bool rules_is_draw(const GameState *state) {
         }
     }
     return true;
+#endif
 }
 
 bool rules_is_terminal(const GameState *state) {
-    return rules_check_winner(state) != 0 ||
-           rules_is_draw(state);
+    int winner = rules_check_winner(state);
+    if (winner != 0) return true;
+#if ENABLE_POWERUPS
+    return rules_is_draw(state);
+#else
+    return rules_is_draw(state);
+#endif
 }

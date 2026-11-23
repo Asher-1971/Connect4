@@ -5,6 +5,7 @@
 #include <string.h>
 
 #include "terminal.h"
+#include "rules.h"
 
 int terminal_read_int(void) {
     char input[128];
@@ -85,4 +86,26 @@ void terminal_print_board(const GameState *game) {
 void terminal_clear_screen(void) {
     printf("\033[3J\033[2J\033[H");
     fflush(stdout);
+}
+
+Move terminal_read_move(const GameState *game) {
+    Move invalid = {-1, MOVE_NORMAL};
+    if (!game) return invalid;
+
+    printf("Enter column (1-%d), optional power-up (0=N, 1=B, 2=A): ",
+           game->cols);
+    int column = terminal_read_int();
+    if (column == -1) return invalid;
+    if (column == 0) return (Move){-2, MOVE_NORMAL};
+
+    printf("Power-up (0 normal, 1 bomb, 2 anvil): ");
+    int power_type = terminal_read_int();
+    if (power_type < MOVE_NORMAL || power_type > MOVE_ANVIL) {
+        return invalid;
+    }
+    if (column < 1 || column > game->cols) return invalid;
+
+    Move move = {column - 1, (MoveType)power_type};
+    if (!rules_is_valid_move(game, move)) return invalid;
+    return move;
 }

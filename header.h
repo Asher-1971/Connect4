@@ -10,7 +10,9 @@
 #define MIN_SIZE 4
 #define MAX_SIZE 20
 #define MAX_PLAYERS 2
+#ifndef ENABLE_POWERUPS
 #define ENABLE_POWERUPS 0
+#endif
 
 #define PLAYER_NONE 0
 #define PLAYER_ONE 1

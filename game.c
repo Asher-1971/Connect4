@@ -137,6 +137,7 @@ void gameInputs(GameState *game, GameConfig *config)
     terminal_init_board(game);
 }
 
+#if !ENABLE_POWERUPS
 static int promptColumn(GameState *game)
 {
     if (!game) {
@@ -149,10 +150,13 @@ static int promptColumn(GameState *game)
         return -1;
     }
 
-    while (column < 0 || column > game->cols ||
-           (column > 0 &&
-            !rules_is_valid_move(game,
-                                 (Move){column - 1, MOVE_NORMAL}))) {
+    while (column < 0 || column > game->cols
+#if !ENABLE_POWERUPS
+           || (column > 0 &&
+               !rules_is_valid_move(game,
+                                    (Move){column - 1, MOVE_NORMAL}))
+#endif
+    ) {
         printf("Invalid or full column. Enter 0-%d: ", game->cols);
         column = terminal_read_int();
         if (column == -1) {
@@ -162,6 +166,7 @@ static int promptColumn(GameState *game)
 
     return column;
 }
+#endif
 
 void uiHumanvsHuman(GameState *game, GameConfig *config)
 {
@@ -191,6 +196,15 @@ void uiHumanvsHuman(GameState *game, GameConfig *config)
 
         printf("Player %d turn:\n", game->current_player);
 
+#if ENABLE_POWERUPS
+        Move move = terminal_read_move(game);
+        if (move.col == -2) {
+            saveGame(game);
+            printf("Exiting...\n");
+            return;
+        }
+        if (move.col < 0 || !rules_apply_move(game, move, game)) continue;
+#else
         int column = promptColumn(game);
         if (column == -1) {
             return;
@@ -202,9 +216,10 @@ void uiHumanvsHuman(GameState *game, GameConfig *config)
         }
 
         Move move = {column - 1, MOVE_NORMAL};
-        if (!rules_apply_move(game, move, game)) {
+        if (move.col < 0 || !rules_apply_move(game, move, game)) {
             continue;
         }
+#endif
 
         terminal_clear_screen();
     }
@@ -245,6 +260,15 @@ void uiHumanvsAI(GameState *game, GameConfig *config)
 
         if (game->current_player == PLAYER_ONE) {
             printf("Your turn (X):\n");
+#if ENABLE_POWERUPS
+            Move move = terminal_read_move(game);
+            if (move.col == -2) {
+                saveGame(game);
+                printf("Exiting...\n");
+                return;
+            }
+            if (move.col < 0 || !rules_apply_move(game, move, game)) continue;
+#else
             int column = promptColumn(game);
             if (column == -1) {
                 return;
@@ -255,24 +279,30 @@ void uiHumanvsAI(GameState *game, GameConfig *config)
                 return;
             }
             Move move = {column - 1, MOVE_NORMAL};
-            if (!rules_apply_move(game, move, game)) continue;
+            if (move.col < 0 || !rules_apply_move(game, move, game)) continue;
+#endif
         } else {
             printf("AI turn (O):\n");
 
             if (difficulty == AI_EASY) {
-                int valid[20];
+                Move valid[MAX_DIM * 3];
                 int validCount = 0;
                 for (int c = 0; c < game->cols; c++) {
-                    if (rules_is_valid_move(game,
-                                           (Move){c, MOVE_NORMAL})) {
-                        valid[validCount++] = c + 1;
+                    Move candidates[] = {
+                        {c, MOVE_NORMAL},
+                        {c, MOVE_BOMB},
+                        {c, MOVE_ANVIL}
+                    };
+                    for (int t = 0; t < 3; t++) {
+                        if (rules_is_valid_move(game, candidates[t])) {
+                            valid[validCount++] = candidates[t];
+                        }
                     }
                 }
-                int column = validCount > 0
+                Move move = validCount > 0
                     ? valid[rand() % validCount]
-                    : -1;
-                Move move = {column - 1, MOVE_NORMAL};
-                if (column > 0 && !rules_apply_move(game, move, game)) continue;
+                    : (Move){-1, MOVE_NORMAL};
+                if (move.col >= 0 && !rules_apply_move(game, move, game)) continue;
             } else {
                 int timeBudget = (difficulty == AI_NORMAL) ? 100 : 1000;
                 Move move = find_best_move(game, timeBudget);

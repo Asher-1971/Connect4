@@ -29,16 +29,20 @@ int negamax(const GameState *s, int depth, int alpha, int beta, SearchContext *c
 Move find_best_move(const GameState *root, int time_budget_ms);
 
 /* Stable AI bridge for the canonical numeric bottom-up GameState. */
-static inline int getBestMove(const GameState *fe, int win_length, int time_budget_ms) {
+static inline Move getBestMoveMove(const GameState *fe, int win_length, int time_budget_ms) {
+    Move invalid = {-1, MOVE_NORMAL};
     if (!rules_validate_state(fe) || fe->win_length != win_length) {
-        return -1;
+        return invalid;
     }
 
     Move best = find_best_move(fe, time_budget_ms);
-    if (best.col < 0 || best.col >= fe->cols) {
-        return -1;
-    }
-    return best.col + 1;
+    if (best.col < 0 || best.col >= fe->cols) return invalid;
+    return best;
+}
+
+static inline int getBestMove(const GameState *fe, int win_length, int time_budget_ms) {
+    Move best = getBestMoveMove(fe, win_length, time_budget_ms);
+    return best.col < 0 ? -1 : best.col + 1;
 }
 
 #ifdef __cplusplus
