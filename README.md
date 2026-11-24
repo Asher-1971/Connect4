@@ -92,7 +92,7 @@ test-rules.exe
 ```
 
 On Linux or macOS, replace backslashes with `/`, remove `.exe`, and replace `^`
-with `\`. Clang users can replace `gcc` with `clang`. will ad the full compiled coding commads once pre compiled binaries are rleased for every os
+with `\`. Clang users can replace `gcc` with `clang`. Full compilation commands for each OS will be added once pre-compiled binaries are released.
 
 Run the game:
 
