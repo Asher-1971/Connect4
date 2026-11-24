@@ -81,22 +81,18 @@ default with `ENABLE_POWERUPS=0`.
 Build the game with GCC:
 
 ```bash
-gcc -std=c17 -Wall -Wextra -Werror -pedantic -DENABLE_POWERUPS=0 ^
-    -Iinclude src\game.c src\module3.c src\rules.c src\terminal.c ^
-    -o connect4.exe
+gcc -std=c17 -Wall -Wextra -Werror -pedantic -DENABLE_POWERUPS=0 -Iinclude src\game.c src\module3.c src\rules.c src\terminal.c -o connect4.exe
 ```
 
 Build and run the rules tests:
 
 ```bash
-gcc -std=c17 -Wall -Wextra -Werror -pedantic -DENABLE_POWERUPS=0 ^
-    -Iinclude tests\test_canonical_state.c src\module3.c src\rules.c src\terminal.c ^
-    -o test-rules.exe
+gcc -std=c17 -Wall -Wextra -Werror -pedantic -DENABLE_POWERUPS=0 -Iinclude tests\test_canonical_state.c src\module3.c src\rules.c src\terminal.c -o test-rules.exe
 test-rules.exe
 ```
 
 On Linux or macOS, replace backslashes with `/`, remove `.exe`, and replace `^`
-with `\`. Clang users can replace `gcc` with `clang`.
+with `\`. Clang users can replace `gcc` with `clang`. Full compilation commands for each OS will be added once pre-compiled binaries are released.
 
 Run the game:
 
