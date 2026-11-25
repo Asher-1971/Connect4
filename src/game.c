@@ -5,20 +5,111 @@
 #include "game.h"
 #include "module3.h"
 #include "rules.h"
+#include "saveload.h"
 #include "terminal.h"
 
-int saveGame(GameState *game)
+int saveGame(const GameState *game, const GameConfig *config)
 {
-    (void)game;
-    printf("Save/load is not implemented yet.\n");
-    return 0;
+    if (!game || !config) return 0;
+
+    /* A resumed game goes back into its own slot. A new game takes an
+     * empty (or unreadable) slot, otherwise it replaces the oldest save. */
+    int slot = config->save_slot;
+    if (slot < 1 || slot > SAVE_SLOTS) {
+        time_t oldest = 0;
+        slot = 0;
+        for (int s = 1; s <= SAVE_SLOTS; s++) {
+            char path[64];
+            GameState tmp;
+            int mode, diff;
+            time_t when;
+            save_slot_path(s, path, sizeof path);
+            if (load_game_file(path, &tmp, &mode, &diff, &when) != 1) {
+                slot = s;
+                break;
+            }
+            if (slot == 0 || when < oldest) {
+                slot = s;
+                oldest = when;
+            }
+        }
+    }
+
+    char path[64];
+    save_slot_path(slot, path, sizeof path);
+    if (!save_game_file(path, game, config->ai_mode, config->ai_difficulty)) {
+        printf("Save failed.\n");
+        return 0;
+    }
+    printf("Game saved to slot %d.\n", slot);
+    return 1;
 }
 
-int loadGame(GameState *game)
+typedef struct {
+    GameState game;
+    int ai_mode;
+    int ai_difficulty;
+    int slot;
+    time_t saved_at;
+} SaveInfo;
+
+int loadGame(GameState *game, GameConfig *config)
 {
-    (void)game;
-    printf("No saved game is available; save/load is not implemented yet.\n");
-    return 0;
+    SaveInfo saves[SAVE_SLOTS];
+    int count = 0;
+
+    /* Read every slot, keeping the list sorted newest first. */
+    for (int s = 1; s <= SAVE_SLOTS; s++) {
+        char path[64];
+        SaveInfo info;
+        save_slot_path(s, path, sizeof path);
+        if (load_game_file(path, &info.game, &info.ai_mode,
+                           &info.ai_difficulty, &info.saved_at) != 1) {
+            continue;   /* empty or corrupted slot */
+        }
+        info.slot = s;
+        int i = count++;
+        while (i > 0 && saves[i - 1].saved_at < info.saved_at) {
+            saves[i] = saves[i - 1];
+            i--;
+        }
+        saves[i] = info;
+    }
+
+    if (count == 0) {
+        printf("No saved games found.\n");
+        return 0;
+    }
+
+    printf("\nSaved games (newest first):\n");
+    for (int i = 0; i < count; i++) {
+        char when[64] = "unknown time";
+        struct tm *local = localtime(&saves[i].saved_at);
+        if (local) strftime(when, sizeof when, "%d %b %Y, %H:%M", local);
+        printf("%d. %s  (%dx%d, %s, %d moves)\n", i + 1, when,
+               saves[i].game.rows, saves[i].game.cols,
+               saves[i].ai_mode == 2 ? "Human vs AI" : "Human vs Human",
+               saves[i].game.move_count);
+    }
+    printf("0. Start a new game\nEnter your choice: ");
+
+    int choice = terminal_read_int();
+    while (choice < 0 || choice > count) {
+        if (choice == -1) return 0;
+        printf("Enter 0-%d: ", count);
+        choice = terminal_read_int();
+    }
+    if (choice == 0) return 0;
+
+    SaveInfo *picked = &saves[choice - 1];
+    *game = picked->game;
+    config->ai_mode = picked->ai_mode;
+    config->ai_difficulty = picked->ai_difficulty;
+    config->save_slot = picked->slot;
+    config->win = false;
+    config->tie = false;
+    printf("\n");
+    return 1;
 }
 
 void gameInputs(GameState *game, GameConfig *config)
@@ -42,10 +133,11 @@ void gameInputs(GameState *game, GameConfig *config)
     }
 
     if (config->menu_choice == 2) {
-        if (!loadGame(game)) {
-            config->menu_choice = 0;
+        if (loadGame(game, config)) {
+            return;
         }
-        return;
+        printf("Starting a new game.\n");
+        config->menu_choice = 1;
     }
 
     printf("\nBoard size:\n");
@@ -199,7 +291,7 @@ void uiHumanvsHuman(GameState *game, GameConfig *config)
 #if ENABLE_POWERUPS
         Move move = terminal_read_move(game);
         if (move.col == -2) {
-            saveGame(game);
+            if (!saveGame(game, config)) continue;
             printf("Exiting...\n");
             return;
         }
@@ -210,7 +302,7 @@ void uiHumanvsHuman(GameState *game, GameConfig *config)
             return;
         }
         if (column == 0) {
-            saveGame(game);
+            if (!saveGame(game, config)) continue;
             printf("Exiting...\n");
             return;
         }
@@ -263,7 +355,7 @@ void uiHumanvsAI(GameState *game, GameConfig *config)
 #if ENABLE_POWERUPS
             Move move = terminal_read_move(game);
             if (move.col == -2) {
-                saveGame(game);
+                if (!saveGame(game, config)) continue;
                 printf("Exiting...\n");
                 return;
             }
@@ -274,7 +366,7 @@ void uiHumanvsAI(GameState *game, GameConfig *config)
                 return;
             }
             if (column == 0) {
-                saveGame(game);
+                if (!saveGame(game, config)) continue;
                 printf("Exiting...\n");
                 return;
             }
@@ -328,6 +420,13 @@ int main(void)
         uiHumanvsHuman(&game, &config);
     } else if (config.ai_mode == 2) {
         uiHumanvsAI(&game, &config);
+    }
+
+    /* A resumed game that has now finished no longer needs its save. */
+    if ((config.win || config.tie) && config.save_slot > 0) {
+        char path[64];
+        save_slot_path(config.save_slot, path, sizeof path);
+        remove(path);
     }
 
     return 0;

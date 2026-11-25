@@ -82,7 +82,7 @@ Build the game with GCC:
 
 ```bash
 gcc -std=c17 -Wall -Wextra -Werror -pedantic -DENABLE_POWERUPS=0 ^
-    -Iinclude src\game.c src\module3.c src\rules.c src\terminal.c ^
+    -Iinclude src\game.c src\module3.c src\rules.c src\saveload.c src\terminal.c ^
     -o connect4.exe
 ```
 
@@ -94,6 +94,27 @@ gcc -std=c17 -Wall -Wextra -Werror -pedantic -DENABLE_POWERUPS=0 ^
     -o test-rules.exe
 test-rules.exe
 ```
+
+Build and run the save/load tests:
+
+```bash
+gcc -std=c17 -Wall -Wextra -Werror -pedantic -DENABLE_POWERUPS=0 ^
+    -Iinclude tests\test_saveload.c src\saveload.c src\module3.c src\rules.c src\terminal.c ^
+    -o test-saveload.exe
+test-saveload.exe
+```
+
+### Save files
+
+Enter `0` during a game to save and quit, then pick **Resume Game** from the
+menu next time. Up to 5 games are kept in slots (`connect4_save1.bin` to
+`connect4_save5.bin`). Resume lists them newest first with the time each was
+saved, and you pick one. Saving a resumed game updates its own slot; a new
+game uses an empty slot or replaces the oldest save, and a resumed game that
+is finished is removed from the list. Each save is a binary file (see
+`include/saveload.h` for the byte layout). A CRC-32 checksum (the same one ZIP
+and PNG files use) at the end of the file is checked on load, so a corrupted
+or hand-edited save is rejected instead of loading a broken board.
 
 On Linux or macOS, replace backslashes with `/`, remove `.exe`, and replace `^`
 with `\`. Clang users can replace `gcc` with `clang`.
