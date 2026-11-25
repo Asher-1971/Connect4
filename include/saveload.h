@@ -32,4 +32,8 @@ uint32_t save_crc32(const uint8_t *data, size_t len);
 /* Writes the file name for slot 1..SAVE_SLOTS into path. */
 void save_slot_path(int slot, char *path, size_t size);
 
+/* Returns 1 on success, 0 on failure. */
+int save_game_file(const char *path, const GameState *game, int ai_mode, int ai_difficulty);
+
+
 #endif
