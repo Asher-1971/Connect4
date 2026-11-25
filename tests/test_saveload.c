@@ -32,5 +32,20 @@ int main()
     assert(mode == 2 && diff == 3);
     assert(when > 0 && time(NULL) - when < 60);
 
+    /* Changing any single byte makes the load fail. */
+    uint8_t buf[512];
+    FILE *fp = fopen(TEST_FILE, "rb");
+    size_t len = fread(buf, 1, sizeof buf, fp);
+    fclose(fp);
+    for (size_t i = 0; i < len; i++) 
+    {
+        buf[i] ^= 0x01;
+        fp = fopen(TEST_FILE, "wb");
+        fwrite(buf, 1, len, fp);
+        fclose(fp);
+        assert(load_game_file(TEST_FILE, &out, &mode, &diff, &when) == -1);
+        buf[i] ^= 0x01;
+    }
+
     
 }
