@@ -19,5 +19,11 @@ int main()
     int cols[] = {3, 3, 0, 6, 2};
     for (int i = 0; i < 5; i++)
         assert(rules_apply_move(&g, (Move){cols[i], MOVE_NORMAL}, &g));
+
+      /* Save then load gives back the same game, mode and a recent time. */
+    int mode = 0, diff = 0;
+    time_t when = 0;
+    assert(save_game_file(TEST_FILE, &g, 2, 3));
+    assert(load_game_file(TEST_FILE, &out, &mode, &diff, &when) == 1);
     
 }
