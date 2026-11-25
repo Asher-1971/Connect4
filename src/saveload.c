@@ -81,3 +81,15 @@ int save_game_file(const char *path, const GameState *game, int ai_mode, int ai_
     remove(path);                 /* Windows rename() won't overwrite */
     return rename(tmp, path) == 0;
 }
+
+int load_game_file(const char *path, GameState *game,
+                   int *ai_mode, int *ai_difficulty, time_t *saved_at)
+{
+    FILE *fp = fopen(path, "rb");
+    if (!fp) return 0;
+    uint8_t buf[MAX_FILE_SIZE + 1];  /* +1 to notice extra bytes */
+    size_t len = fread(buf, 1, sizeof buf, fp);
+    fclose(fp);
+
+    
+}
