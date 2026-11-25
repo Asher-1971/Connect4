@@ -13,10 +13,11 @@ typedef struct {
     int ai_difficulty;
     bool win;
     bool tie;
+    int save_slot;   /* slot the game was resumed from, 0 if new */
 } GameConfig;
 
-int saveGame(GameState *game);
-int loadGame(GameState *game);
+int saveGame(const GameState *game, const GameConfig *config);
+int loadGame(GameState *game, GameConfig *config);
 void gameInputs(GameState *game, GameConfig *config);
 void uiHumanvsHuman(GameState *game, GameConfig *config);
 void uiHumanvsAI(GameState *game, GameConfig *config);

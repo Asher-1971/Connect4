@@ -8,9 +8,7 @@ bool rules_validate_state(const GameState *state) {
         (state->win_length > state->rows && state->win_length > state->cols) ||
         (state->current_player != PLAYER_ONE && state->current_player != PLAYER_TWO) ||
         state->move_count < 0 ||
-#if ENABLE_POWERUPS
-        state->move_count > state->rows * state->cols + 2 * MAX_PLAYERS ||
-#else
+#if !ENABLE_POWERUPS
         state->move_count > state->rows * state->cols ||
 #endif
         state->piece_count < 0 || state->piece_count > state->move_count ||
@@ -42,7 +40,25 @@ bool rules_validate_state(const GameState *state) {
         return false;
     }
 #if ENABLE_POWERUPS
-    /* Bomb/anvil moves can reduce piece_count below move_count. */
+    /* Each move adds at most one piece, and each bomb (up to 8 pieces) or
+     * anvil (up to a full column) removes some. So the move count can't be
+     * more than the pieces left + everything power-ups could have removed
+     * + the power-up moves themselves (which add no piece). */
+    int powerups_used = 0;
+    int max_removed = 0;
+    for (int p = PLAYER_ONE; p <= PLAYER_TWO; p++) {
+        if (state->bomb_used[p]) {
+            powerups_used++;
+            max_removed += 8;
+        }
+        if (state->anvil_used[p]) {
+            powerups_used++;
+            max_removed += state->rows;
+        }
+    }
+    if (state->move_count > state->piece_count + max_removed + powerups_used) {
+        return false;
+    }
 #else
     if (state->move_count != state->piece_count) {
         return false;

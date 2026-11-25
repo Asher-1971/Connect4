@@ -55,3 +55,7 @@ dkms.conf
 *.dwo
 
 .vscode
+# Saved games
+connect4_save*.bin
+connect4_save*.bin.tmp
+test_saveload.bin
