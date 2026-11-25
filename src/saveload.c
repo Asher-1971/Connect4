@@ -28,3 +28,8 @@ uint32_t save_crc32(const uint8_t *data, size_t len)
     }
     return crc ^ 0xFFFFFFFFu;
 }
+
+void save_slot_path(int slot, char *path, size_t size)
+{
+    snprintf(path, size, "connect4_save%d.bin", slot);
+}
