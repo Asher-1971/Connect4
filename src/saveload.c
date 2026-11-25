@@ -91,5 +91,12 @@ int load_game_file(const char *path, GameState *game,
     size_t len = fread(buf, 1, sizeof buf, fp);
     fclose(fp);
 
+  /* Check ID, version and CRC before trusting anything else. */
+    if (len < HEADER_SIZE + 4 || len > MAX_FILE_SIZE ||
+        memcmp(buf, SAVE_MAGIC, 4) != 0 || buf[4] != SAVE_VERSION)
+        return -1;
+    uint32_t stored_crc;
+    memcpy(&stored_crc, buf + len - 4, 4);
+    if (save_crc32(buf, len - 4) != stored_crc) return -1;
     
 }
