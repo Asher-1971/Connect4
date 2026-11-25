@@ -119,5 +119,12 @@ int load_game_file(const char *path, GameState *game,
     g.move_count = moves;
     g.piece_count = pieces;
 
-    
+    if (g.rows < MIN_SIZE || g.rows > MAX_SIZE ||
+        g.cols < MIN_SIZE || g.cols > MAX_SIZE ||
+        len != (size_t)(HEADER_SIZE + g.rows * g.cols + 4) ||
+        mode < 1 || mode > 2 || difficulty < 0 || difficulty > 3)
+        return -1;
+    for (int r = 0; r < g.rows; r++)
+        for (int c = 0; c < g.cols; c++)
+            g.board[r][c] = buf[n++];
 }
