@@ -5,8 +5,8 @@
 #include "rules.h"
 
 #define SAVE_MAGIC    "C4SV"
-#define SAVE_VERSION  3
-#define HEADER_SIZE   31   /* every field before the board */
+#define SAVE_VERSION  4    /* 4: added the power-ups byte */
+#define HEADER_SIZE   32   /* every field before the board */
 #define MAX_FILE_SIZE (HEADER_SIZE + MAX_SIZE * MAX_SIZE + 4)
 
 /* CRC-32 (the ZIP/PNG standard): long division of the data by the
@@ -59,6 +59,7 @@ int save_game_file(const char *path, const GameState *game, int ai_mode, int ai_
     buf[n++] = game->bomb_used[PLAYER_TWO];
     buf[n++] = game->anvil_used[PLAYER_ONE];
     buf[n++] = game->anvil_used[PLAYER_TWO];
+    buf[n++] = game->powerups;
     for (int r = 0; r < game->rows; r++)
         for (int c = 0; c < game->cols; c++)
             buf[n++] = game->board[r][c];
@@ -116,13 +117,16 @@ int load_game_file(const char *path, GameState *game,
     g.bomb_used[PLAYER_TWO] = buf[n++] != 0;
     g.anvil_used[PLAYER_ONE] = buf[n++] != 0;
     g.anvil_used[PLAYER_TWO] = buf[n++] != 0;
+    int powerups = buf[n++];
+    g.powerups = powerups == 1;
     g.move_count = moves;
     g.piece_count = pieces;
 
     if (g.rows < MIN_SIZE || g.rows > MAX_SIZE ||
         g.cols < MIN_SIZE || g.cols > MAX_SIZE ||
         len != (size_t)(HEADER_SIZE + g.rows * g.cols + 4) ||
-        mode < 1 || mode > 2 || difficulty < 0 || difficulty > 3)
+        mode < 1 || mode > 2 || difficulty < 0 || difficulty > 3 ||
+        powerups > 1)
         return -1;
     for (int r = 0; r < g.rows; r++)
         for (int c = 0; c < g.cols; c++)

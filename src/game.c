@@ -86,9 +86,10 @@ int loadGame(GameState *game, GameConfig *config)
         char when[64] = "unknown time";
         struct tm *local = localtime(&saves[i].saved_at);
         if (local) strftime(when, sizeof when, "%d %b %Y, %H:%M", local);
-        printf("%d. %s  (%dx%d, %s, %d moves)\n", i + 1, when,
+        printf("%d. %s  (%dx%d, %s%s, %d moves)\n", i + 1, when,
                saves[i].game.rows, saves[i].game.cols,
                saves[i].ai_mode == 2 ? "Human vs AI" : "Human vs Human",
+               saves[i].game.powerups ? ", power-ups" : "",
                saves[i].game.move_count);
     }
     printf("0. Start a new game\nEnter your choice: ");
@@ -191,6 +192,21 @@ void gameInputs(GameState *game, GameConfig *config)
         }
     }
 
+    printf("\nPower-ups:\n");
+    printf("1. Off (classic rules)\n");
+    printf("2. On (one bomb and one anvil each)\n");
+    printf("Enter your choice: ");
+
+    int powerChoice = terminal_read_int();
+    while (powerChoice < 1 || powerChoice > 2) {
+        if (powerChoice == -1) {
+            return;
+        }
+        printf("Enter 1 or 2: ");
+        powerChoice = terminal_read_int();
+    }
+    game->powerups = (powerChoice == 2);
+
     printf("\nChoose game mode:\n");
     printf("1. Human vs Human\n");
     printf("2. Human vs AI\n");
@@ -230,37 +246,6 @@ void gameInputs(GameState *game, GameConfig *config)
     terminal_init_board(game);
 }
 
-#if !ENABLE_POWERUPS
-static int promptColumn(GameState *game)
-{
-    if (!game) {
-        return -1;
-    }
-
-    printf("Enter a column (1-%d), or 0 to save and quit: ", game->cols);
-    int column = terminal_read_int();
-    if (column == -1) {
-        return -1;
-    }
-
-    while (column < 0 || column > game->cols
-#if !ENABLE_POWERUPS
-           || (column > 0 &&
-               !rules_is_valid_move(game,
-                                    (Move){column - 1, MOVE_NORMAL}))
-#endif
-    ) {
-        printf("Invalid or full column. Enter 0-%d: ", game->cols);
-        column = terminal_read_int();
-        if (column == -1) {
-            return -1;
-        }
-    }
-
-    return column;
-}
-#endif
-
 void uiHumanvsHuman(GameState *game, GameConfig *config)
 {
     if (!game || !config) {
@@ -289,31 +274,14 @@ void uiHumanvsHuman(GameState *game, GameConfig *config)
         printf("Player %d (%c) turn:\n", game->current_player,
                game->current_player == PLAYER_ONE ? 'X' : 'O');
 
-#if ENABLE_POWERUPS
         Move move = terminal_read_move(game);
         if (move.col == -1) return;              /* input closed */
-        if (move.col == -2) {
+        if (move.col == -2) {                    /* 0 = save and quit */
             if (!saveGame(game, config)) continue;
             printf("Exiting...\n");
             return;
         }
         if (move.col < 0 || !rules_apply_move(game, move, game)) continue;
-#else
-        int column = promptColumn(game);
-        if (column == -1) {
-            return;
-        }
-        if (column == 0) {
-            if (!saveGame(game, config)) continue;
-            printf("Exiting...\n");
-            return;
-        }
-
-        Move move = {column - 1, MOVE_NORMAL};
-        if (move.col < 0 || !rules_apply_move(game, move, game)) {
-            continue;
-        }
-#endif
 
         terminal_clear_screen();
     }
@@ -354,28 +322,14 @@ void uiHumanvsAI(GameState *game, GameConfig *config)
 
         if (game->current_player == PLAYER_ONE) {
             printf("Your turn (X):\n");
-#if ENABLE_POWERUPS
             Move move = terminal_read_move(game);
             if (move.col == -1) return;          /* input closed */
-            if (move.col == -2) {
+            if (move.col == -2) {                /* 0 = save and quit */
                 if (!saveGame(game, config)) continue;
                 printf("Exiting...\n");
                 return;
             }
             if (move.col < 0 || !rules_apply_move(game, move, game)) continue;
-#else
-            int column = promptColumn(game);
-            if (column == -1) {
-                return;
-            }
-            if (column == 0) {
-                if (!saveGame(game, config)) continue;
-                printf("Exiting...\n");
-                return;
-            }
-            Move move = {column - 1, MOVE_NORMAL};
-            if (move.col < 0 || !rules_apply_move(game, move, game)) continue;
-#endif
         } else {
             printf("AI turn (O):\n");
 

@@ -99,7 +99,14 @@ int main(void) {
         {P1, P1, P2, P2},
         {P2, P2, P1, P1}
     };
-#if ENABLE_POWERUPS
+    /* Classic rules: 3 moves but 1 piece is impossible, and bombs/anvils
+     * are refused. */
+    assert(!rules_validate_state(&powerup_state));
+    assert(!rules_is_valid_move(&game, (Move){0, MOVE_BOMB}));
+    assert(!rules_is_valid_move(&game, (Move){0, MOVE_ANVIL}));
+
+    /* Power-ups on. */
+    powerup_state.powerups = true;
     Move anvil_move = {6, MOVE_ANVIL};
     powerup_state.move_count = 1;
     powerup_state.piece_count = 1;
@@ -155,9 +162,6 @@ int main(void) {
     full_powerup.bomb_used[PLAYER_ONE] = true;
     full_powerup.bomb_used[PLAYER_TWO] = true;
     assert(rules_is_draw(&full_powerup));
-#else
-    assert(!rules_validate_state(&powerup_state));
-#endif
 
     assert(rules_is_valid_move(&game, (Move){0, MOVE_NORMAL}));
     assert(!rules_is_valid_move(&game, (Move){-1, MOVE_NORMAL}));
@@ -175,9 +179,10 @@ int main(void) {
         }
     }
     assert(rules_check_winner(&drawn) == 0);
-#if !ENABLE_POWERUPS
     assert(rules_is_draw(&drawn));
-#endif
+    /* With power-ups on, a full board isn't a draw while anvils are left. */
+    drawn.powerups = true;
+    assert(!rules_is_draw(&drawn));
 
     GameState horizontal = {0};
     horizontal.rows = 6;
@@ -200,9 +205,9 @@ int main(void) {
     assert(oracle_check_win(&horizontal, P1));
 
 
-#if ENABLE_POWERUPS
     GameState before_bomb = horizontal;
     terminal_init_board(&before_bomb);
+    before_bomb.powerups = true;
     before_bomb.board[0][0] = P1;
     before_bomb.board[0][1] = P2;
     before_bomb.board[0][2] = P1;
@@ -217,7 +222,6 @@ int main(void) {
     assert(after_bomb.move_count == 4);
     assert(after_bomb.bomb_used[PLAYER_ONE] == true);
     assert(rules_validate_state(&after_bomb));
-#endif
 
     return 0;
 }

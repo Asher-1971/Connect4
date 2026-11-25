@@ -14,7 +14,8 @@
  *   move_count, piece_count     4 bytes each
  *   ai_mode, ai_difficulty      1 byte each
  *   bomb/anvil used (P1, P2)    1 byte each (4 bytes)
- *   board                       rows * cols bytes
+ *   power-ups on                1 byte (0 or 1)
+ *   board                     rows * cols bytes
  *   CRC-32                      4 bytes, checksum of everything above
  */
 

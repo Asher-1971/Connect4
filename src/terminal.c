@@ -107,19 +107,24 @@ Move terminal_read_move(const GameState *game) {
         return invalid;
     }
 
-    printf("Disc: 0 normal, 1 bomb%s, 2 anvil%s: ",
-           game->bomb_used[p] ? " (used)" : "",
-           game->anvil_used[p] ? " (used)" : "");
-    int power_type = terminal_read_int();
-    if (power_type == -1) return closed;
-    if (power_type < MOVE_NORMAL || power_type > MOVE_ANVIL) {
-        printf("Invalid disc type.\n");
-        return invalid;
+    int power_type = MOVE_NORMAL;
+    if (game->powerups) {
+        printf("Disc: 0 normal, 1 bomb%s, 2 anvil%s: ",
+               game->bomb_used[p] ? " (used)" : "",
+               game->anvil_used[p] ? " (used)" : "");
+        power_type = terminal_read_int();
+        if (power_type == -1) return closed;
+        if (power_type < MOVE_NORMAL || power_type > MOVE_ANVIL) {
+            printf("Invalid disc type.\n");
+            return invalid;
+        }
     }
 
     Move move = {column - 1, (MoveType)power_type};
     if (!rules_is_valid_move(game, move)) {
-        printf("That move isn't allowed (column full or power-up used).\n");
+        printf(game->powerups
+               ? "That move isn't allowed (column full or power-up used).\n"
+               : "That column is full.\n");
         return invalid;
     }
     return move;

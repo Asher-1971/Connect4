@@ -10,9 +10,6 @@
 #define MIN_SIZE 4
 #define MAX_SIZE 20
 #define MAX_PLAYERS 2
-#ifndef ENABLE_POWERUPS
-#define ENABLE_POWERUPS 0
-#endif
 
 #define PLAYER_NONE 0
 #define PLAYER_ONE 1
@@ -39,6 +36,7 @@ typedef struct {
     int piece_count;
     bool bomb_used[MAX_PLAYERS + 1];
     bool anvil_used[MAX_PLAYERS + 1];
+    bool powerups;   /* chosen in the menu: bomb + anvil allowed this game */
 } GameState;
 
 #endif

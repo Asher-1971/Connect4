@@ -75,30 +75,26 @@ git clone [https://github.com/Asher-1971/Connect4](https://github.com/Asher-1971
 cd Connect4
 ```
 
-The V1 layout uses `include/`, `src/`, and `tests/`. Power-ups are disabled by
-default with `ENABLE_POWERUPS=0`.
+The V1 layout uses `include/`, `src/`, and `tests/`. Power-ups are chosen in
+the menu when you start a new game (Off or On), so one program covers both.
 
 Build the game with GCC:
 
 ```bash
-gcc -std=c17 -Wall -Wextra -Werror -pedantic -DENABLE_POWERUPS=0 ^
-    -Iinclude src\game.c src\module3.c src\rules.c src\terminal.c ^
-    -o connect4.exe
+gcc -std=c17 -Wall -Wextra -Werror -pedantic -Iinclude src\game.c src\module3.c src\rules.c src\saveload.c src\terminal.c -o connect4.exe
 ```
 
 Build and run the rules tests:
 
 ```bash
-gcc -std=c17 -Wall -Wextra -Werror -pedantic -DENABLE_POWERUPS=0 -Iinclude tests\test_canonical_state.c src\module3.c src\rules.c src\terminal.c -o test-rules.exe
+gcc -std=c17 -Wall -Wextra -Werror -pedantic -Iinclude tests\test_canonical_state.c src\module3.c src\rules.c src\terminal.c -o test-rules.exe
 test-rules.exe
 ```
 
 Build and run the save/load tests:
 
 ```bash
-gcc -std=c17 -Wall -Wextra -Werror -pedantic -DENABLE_POWERUPS=0 ^
-    -Iinclude tests\test_saveload.c src\saveload.c src\module3.c src\rules.c src\terminal.c ^
-    -o test-saveload.exe
+gcc -std=c17 -Wall -Wextra -Werror -pedantic -Iinclude tests\test_saveload.c src\saveload.c src\module3.c src\rules.c src\terminal.c -o test-saveload.exe
 test-saveload.exe
 ```
 
@@ -114,8 +110,7 @@ is finished is removed from the list. Each save is a binary file (see
 and PNG files use) at the end of the file is checked on load, so a corrupted
 or hand-edited save is rejected instead of loading a broken board.
 
-On Linux or macOS, replace backslashes with `/`, remove `.exe`, and replace `^`
-with `\`. Clang users can replace `gcc` with `clang`. Full compilation commands for each OS will be added once pre-compiled binaries are released.
+On Linux or macOS, replace backslashes with `/` and remove `.exe`. Clang users can replace `gcc` with `clang`. Full compilation commands for each OS will be added once pre-compiled binaries are released.
 
 Run the game:
 

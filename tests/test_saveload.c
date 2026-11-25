@@ -31,6 +31,19 @@ int main()
     assert(out.move_count == 5 && out.piece_count == 5);
     assert(mode == 2 && diff == 3);
     assert(when > 0 && time(NULL) - when < 60);
+    assert(out.powerups == false);
+
+    /* A power-ups game keeps its setting and used power-ups. */
+    GameState pg = {0}, pout = {0};
+    pg.rows = 6; pg.cols = 7; pg.win_length = 4; pg.powerups = true;
+    terminal_init_board(&pg);
+    assert(rules_apply_move(&pg, (Move){3, MOVE_NORMAL}, &pg));
+    assert(rules_apply_move(&pg, (Move){3, MOVE_ANVIL}, &pg));
+    assert(save_game_file(TEST_FILE, &pg, 1, 0));
+    assert(load_game_file(TEST_FILE, &pout, &mode, &diff, &when) == 1);
+    assert(pout.powerups == true && pout.anvil_used[PLAYER_TWO] == true);
+    assert(pout.move_count == 2 && pout.piece_count == 0);
+    assert(save_game_file(TEST_FILE, &g, 2, 3));   /* back to the first game */
 
     /* Changing any single byte makes the load fail. */
     uint8_t buf[512];

@@ -1,5 +1,6 @@
 #include "rules.h"
 #include <limits.h>
+#include <stddef.h>
 
 bool rules_validate_state(const GameState *state) {
     if (!state || state->rows < MIN_SIZE || state->rows > MAX_SIZE ||
@@ -8,9 +9,7 @@ bool rules_validate_state(const GameState *state) {
         (state->win_length > state->rows && state->win_length > state->cols) ||
         (state->current_player != PLAYER_ONE && state->current_player != PLAYER_TWO) ||
         state->move_count < 0 ||
-#if !ENABLE_POWERUPS
-        state->move_count > state->rows * state->cols ||
-#endif
+        (!state->powerups && state->move_count > state->rows * state->cols) ||
         state->piece_count < 0 || state->piece_count > state->move_count ||
         state->piece_count > state->rows * state->cols) {
         return false;
@@ -39,42 +38,44 @@ bool rules_validate_state(const GameState *state) {
     if (piece_count != state->piece_count) {
         return false;
     }
-#if ENABLE_POWERUPS
-    /* Each move adds at most one piece, and each bomb (up to 8 pieces) or
-     * anvil (up to a full column) removes some. So the move count can't be
-     * more than the pieces left + everything power-ups could have removed
-     * + the power-up moves themselves (which add no piece). */
-    int powerups_used = 0;
-    int max_removed = 0;
+
+    if (state->powerups) {
+        /* Each move adds at most one piece, and each bomb (up to 8 pieces) or
+         * anvil (up to a full column) removes some. So the move count can't be
+         * more than the pieces left + everything power-ups could have removed
+         * + the power-up moves themselves (which add no piece). */
+        int powerups_used = 0;
+        int max_removed = 0;
+        for (int p = PLAYER_ONE; p <= PLAYER_TWO; p++) {
+            if (state->bomb_used[p]) {
+                powerups_used++;
+                max_removed += 8;
+            }
+            if (state->anvil_used[p]) {
+                powerups_used++;
+                max_removed += state->rows;
+            }
+        }
+        if (state->move_count > state->piece_count + max_removed + powerups_used) {
+            return false;
+        }
+        return true;
+    }
+
+    /* Classic rules: no power-up can have been used, every move added
+     * exactly one piece, and the players took turns. */
     for (int p = PLAYER_ONE; p <= PLAYER_TWO; p++) {
-        if (state->bomb_used[p]) {
-            powerups_used++;
-            max_removed += 8;
-        }
-        if (state->anvil_used[p]) {
-            powerups_used++;
-            max_removed += state->rows;
-        }
+        if (state->bomb_used[p] || state->anvil_used[p]) return false;
     }
-    if (state->move_count > state->piece_count + max_removed + powerups_used) {
-        return false;
-    }
-#else
     if (state->move_count != state->piece_count) {
         return false;
     }
-#endif
-#if ENABLE_POWERUPS
-    (void)p1_count;
-    (void)p2_count;
-#else
     if (p1_count < p2_count || p1_count - p2_count > 1) return false;
     if ((p1_count == p2_count && state->current_player != PLAYER_ONE) ||
         (p1_count == p2_count + 1 &&
          state->current_player != PLAYER_TWO)) {
         return false;
     }
-#endif
     return true;
 }
 
@@ -84,20 +85,14 @@ bool rules_is_valid_move(const GameState *state, Move move) {
         rules_check_winner(state) != 0) {
         return false;
     }
-#if ENABLE_POWERUPS
-    if (move.type == MOVE_NORMAL) {
-        return state->board[state->rows - 1][move.col] == EMPTY;
-    }
-    if (move.type == MOVE_BOMB) {
-        return state->board[state->rows - 1][move.col] == EMPTY &&
-               !state->bomb_used[state->current_player];
-    }
-    if (move.type == MOVE_ANVIL) return !state->anvil_used[state->current_player];
+    bool col_open = state->board[state->rows - 1][move.col] == EMPTY;
+    int p = state->current_player;
+
+    if (move.type == MOVE_NORMAL) return col_open;
+    if (!state->powerups) return false;   /* bomb/anvil need power-ups on */
+    if (move.type == MOVE_BOMB) return col_open && !state->bomb_used[p];
+    if (move.type == MOVE_ANVIL) return !state->anvil_used[p];
     return false;
-#else
-    if (state->board[state->rows - 1][move.col] != EMPTY) return false;
-    return move.type == MOVE_NORMAL;
-#endif
 }
 
 bool rules_apply_move(const GameState *state, Move move, GameState *out) {
@@ -109,58 +104,43 @@ bool rules_apply_move(const GameState *state, Move move, GameState *out) {
         return false;
     }
 
+    /* rules_is_valid_move has already checked power-ups are on and unused. */
     GameState next = *state;
     int p = next.current_player;
-    bool applied = false;
 
     if (move.type == MOVE_NORMAL) {
         for (int r = 0; r < next.rows; r++) {
             if (next.board[r][move.col] == EMPTY) {
                 next.board[r][move.col] = (uint8_t)p;
-                applied = true;
                 break;
             }
         }
-    }
-#if ENABLE_POWERUPS
-    else if (move.type == MOVE_BOMB) {
-        if (!next.bomb_used[p]) {
-            int land_row = next.rows - 1;
-            for (int r = 0; r < next.rows; r++) {
-                if (next.board[r][move.col] == EMPTY) {
-                    land_row = r;
-                    break;
-                }
-            }
-            if (land_row >= 0) {
-                int r_min = land_row > 0 ? land_row - 1 : 0;
-                int r_max = land_row + 1 < next.rows ? land_row + 1 : next.rows - 1;
-                int c_min = move.col > 0 ? move.col - 1 : 0;
-                int c_max = move.col + 1 < next.cols ? move.col + 1 : next.cols - 1;
-                for (int r = r_min; r <= r_max; r++) {
-                    for (int c = c_min; c <= c_max; c++) {
-                        next.board[r][c] = EMPTY;
-                    }
-                }
-                next.bomb_used[p] = true;
-                rules_apply_gravity(&next);
-                applied = true;
+    } else if (move.type == MOVE_BOMB) {
+        /* Lands on the first empty row, then clears the 3x3 around it. */
+        int land_row = next.rows - 1;
+        for (int r = 0; r < next.rows; r++) {
+            if (next.board[r][move.col] == EMPTY) {
+                land_row = r;
+                break;
             }
         }
-    } else if (move.type == MOVE_ANVIL) {
-        if (!next.anvil_used[p]) {
-            for (int r = 0; r < next.rows; r++) {
-                next.board[r][move.col] = EMPTY;
+        int r_min = land_row > 0 ? land_row - 1 : 0;
+        int r_max = land_row + 1 < next.rows ? land_row + 1 : next.rows - 1;
+        int c_min = move.col > 0 ? move.col - 1 : 0;
+        int c_max = move.col + 1 < next.cols ? move.col + 1 : next.cols - 1;
+        for (int r = r_min; r <= r_max; r++) {
+            for (int c = c_min; c <= c_max; c++) {
+                next.board[r][c] = EMPTY;
             }
-            next.anvil_used[p] = true;
-            applied = true;
         }
-    }
-#endif
-
-    if (!applied) {
-        *out = *state;
-        return false;
+        next.bomb_used[p] = true;
+        rules_apply_gravity(&next);
+    } else {
+        /* Anvil: clears the whole column. */
+        for (int r = 0; r < next.rows; r++) {
+            next.board[r][move.col] = EMPTY;
+        }
+        next.anvil_used[p] = true;
     }
 
     if (next.move_count >= INT_MAX) {
@@ -251,19 +231,22 @@ bool rules_is_draw(const GameState *state) {
     int winner = rules_check_winner(state);
     if (winner == 3) return true;
     if (winner != 0) return false;
-#if ENABLE_POWERUPS
-    for (int c = 0; c < state->cols; c++) {
-        Move moves[] = {
-            {c, MOVE_NORMAL},
-            {c, MOVE_BOMB},
-            {c, MOVE_ANVIL}
-        };
-        for (size_t i = 0; i < sizeof moves / sizeof moves[0]; i++) {
-            if (rules_is_valid_move(state, moves[i])) return false;
+
+    if (state->powerups) {
+        /* A full board isn't a draw while someone can still use an anvil:
+         * it's a draw only when no move of any type is possible. */
+        for (int c = 0; c < state->cols; c++) {
+            Move moves[] = {
+                {c, MOVE_NORMAL},
+                {c, MOVE_BOMB},
+                {c, MOVE_ANVIL}
+            };
+            for (size_t i = 0; i < sizeof moves / sizeof moves[0]; i++) {
+                if (rules_is_valid_move(state, moves[i])) return false;
+            }
         }
+        return true;
     }
-    return true;
-#else
 
     for (int r = 0; r < state->rows; r++) {
         for (int c = 0; c < state->cols; c++) {
@@ -271,15 +254,8 @@ bool rules_is_draw(const GameState *state) {
         }
     }
     return true;
-#endif
 }
 
 bool rules_is_terminal(const GameState *state) {
-    int winner = rules_check_winner(state);
-    if (winner != 0) return true;
-#if ENABLE_POWERUPS
-    return rules_is_draw(state);
-#else
-    return rules_is_draw(state);
-#endif
+    return rules_check_winner(state) != 0 || rules_is_draw(state);
 }

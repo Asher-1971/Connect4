@@ -68,12 +68,7 @@ int generate_moves(const GameState *s, Move moves[MAX_DIM * 3]) {
     build_center_out_order(s->cols, col_order);
 
     int count = 0;
-#if ENABLE_POWERUPS
     int p = s->current_player;
-    if (p != 1 && p != 2) {
-        return 0;
-    }
-#endif
 
     for (int i = 0; i < s->cols; i++) {
         int col = col_order[i];
@@ -86,18 +81,16 @@ int generate_moves(const GameState *s, Move moves[MAX_DIM * 3]) {
             count++;
         }
 
-#if ENABLE_POWERUPS
-        if (!col_full && !s->bomb_used[p]) {
+        if (s->powerups && !col_full && !s->bomb_used[p]) {
             moves[count].col = col;
             moves[count].type = MOVE_BOMB;
             count++;
         }
-        if (!s->anvil_used[p]) {
+        if (s->powerups && !s->anvil_used[p]) {
             moves[count].col = col;
             moves[count].type = MOVE_ANVIL;
             count++;
         }
-#endif
     }
 
     return count;
@@ -212,13 +205,11 @@ int evaluate_board(const GameState *s) {
         }
     }
 
-#if ENABLE_POWERUPS
-    /* 3. Symmetric power-up conservation penalty */
+    /* 3. Symmetric power-up conservation penalty (all false when off) */
     if (s->bomb_used[me])   score -= 25;
     if (s->anvil_used[me])  score -= 25;
     if (s->bomb_used[opp])  score += 25;
     if (s->anvil_used[opp]) score += 25;
-#endif
 
     return score;
 }
@@ -330,13 +321,14 @@ Move find_best_move(const GameState *root, int time_budget_ms) {
     ctx.timed_out = false;
 
     int max_depth = MAX_SEARCH_DEPTH;
-#if !ENABLE_POWERUPS
-    int remaining = (root->rows * root->cols) - root->move_count;
-    max_depth = (remaining > 0) ? remaining : 1;
-    if (max_depth > MAX_SEARCH_DEPTH) {
-        max_depth = MAX_SEARCH_DEPTH;
+    if (!root->powerups) {
+        /* Without power-ups the game can't last longer than the empty cells. */
+        int remaining = (root->rows * root->cols) - root->move_count;
+        max_depth = (remaining > 0) ? remaining : 1;
+        if (max_depth > MAX_SEARCH_DEPTH) {
+            max_depth = MAX_SEARCH_DEPTH;
+        }
     }
-#endif
 
     for (int depth = 1; depth <= max_depth; depth++) {
         promote_pv_move(root_moves, num_moves, best_move);
