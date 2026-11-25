@@ -47,5 +47,10 @@ int main()
         buf[i] ^= 0x01;
     }
 
-    
+     /* Missing file. */
+    remove(TEST_FILE);
+    assert(load_game_file(TEST_FILE, &out, &mode, &diff, &when) == 0);
+
+    printf("All save/load tests passed.\n");
+    return 0;
 }
