@@ -25,5 +25,12 @@ int main()
     time_t when = 0;
     assert(save_game_file(TEST_FILE, &g, 2, 3));
     assert(load_game_file(TEST_FILE, &out, &mode, &diff, &when) == 1);
+    assert(memcmp(g.board, out.board, sizeof g.board) == 0);
+    assert(out.rows == 6 && out.cols == 7 && out.win_length == 4);
+    assert(out.current_player == g.current_player);
+    assert(out.move_count == 5 && out.piece_count == 5);
+    assert(mode == 2 && diff == 3);
+    assert(when > 0 && time(NULL) - when < 60);
+
     
 }
