@@ -12,5 +12,12 @@ int main()
 {
   /* CRC-32 gives the official check value. */
     assert(save_crc32((const uint8_t *)"123456789", 9) == 0xCBF43926u);
+
+    GameState g = {0}, out = {0};
+    g.rows = 6; g.cols = 7; g.win_length = 4;
+    terminal_init_board(&g);
+    int cols[] = {3, 3, 0, 6, 2};
+    for (int i = 0; i < 5; i++)
+        assert(rules_apply_move(&g, (Move){cols[i], MOVE_NORMAL}, &g));
     
 }
