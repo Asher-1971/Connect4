@@ -33,3 +33,51 @@ void save_slot_path(int slot, char *path, size_t size)
 {
     snprintf(path, size, "connect4_save%d.bin", slot);
 }
+
+int save_game_file(const char *path, const GameState *game, int ai_mode, int ai_difficulty)
+{
+    if (!path || !rules_validate_state(game)) return 0;
+
+    uint8_t buf[MAX_FILE_SIZE];
+    size_t n = 0;
+    int64_t now = (int64_t)time(NULL);
+    int32_t moves = game->move_count;
+    int32_t pieces = game->piece_count;
+
+    memcpy(buf + n, SAVE_MAGIC, 4);  n += 4;
+    buf[n++] = SAVE_VERSION;
+    memcpy(buf + n, &now, 8);        n += 8;
+    buf[n++] = (uint8_t)game->rows;
+    buf[n++] = (uint8_t)game->cols;
+    buf[n++] = (uint8_t)game->win_length;
+    buf[n++] = (uint8_t)game->current_player;
+    memcpy(buf + n, &moves, 4);      n += 4;
+    memcpy(buf + n, &pieces, 4);     n += 4;
+    buf[n++] = (uint8_t)ai_mode;
+    buf[n++] = (uint8_t)ai_difficulty;
+    buf[n++] = game->bomb_used[PLAYER_ONE];
+    buf[n++] = game->bomb_used[PLAYER_TWO];
+    buf[n++] = game->anvil_used[PLAYER_ONE];
+    buf[n++] = game->anvil_used[PLAYER_TWO];
+    for (int r = 0; r < game->rows; r++)
+        for (int c = 0; c < game->cols; c++)
+            buf[n++] = game->board[r][c];
+
+    uint32_t crc = save_crc32(buf, n);
+    memcpy(buf + n, &crc, 4);        
+    n += 4;
+
+    /* Write a temp file first, then swap it in, so a crash mid-save
+     never leaves a half-written save behind. */
+    char tmp[256];
+    snprintf(tmp, sizeof tmp, "%s.tmp", path);
+    FILE *fp = fopen(tmp, "wb");
+    if (!fp) return 0;
+    size_t written = fwrite(buf, 1, n, fp);
+    if (fclose(fp) != 0 || written != n) {
+        remove(tmp);
+        return 0;
+    }
+    remove(path);                 /* Windows rename() won't overwrite */
+    return rename(tmp, path) == 0;
+}
