@@ -99,4 +99,25 @@ int load_game_file(const char *path, GameState *game,
     memcpy(&stored_crc, buf + len - 4, 4);
     if (save_crc32(buf, len - 4) != stored_crc) return -1;
     
+    GameState g = {0};
+    int64_t time_saved;
+    int32_t moves, pieces;
+    size_t n = 5;
+    memcpy(&time_saved, buf + n, 8); n += 8;
+    g.rows = buf[n++];
+    g.cols = buf[n++];
+    g.win_length = buf[n++];
+    g.current_player = buf[n++];
+    memcpy(&moves, buf + n, 4);      n += 4;
+    memcpy(&pieces, buf + n, 4);     n += 4;
+    int mode = buf[n++];
+    int difficulty = buf[n++];
+    g.bomb_used[PLAYER_ONE] = buf[n++] != 0;
+    g.bomb_used[PLAYER_TWO] = buf[n++] != 0;
+    g.anvil_used[PLAYER_ONE] = buf[n++] != 0;
+    g.anvil_used[PLAYER_TWO] = buf[n++] != 0;
+    g.move_count = moves;
+    g.piece_count = pieces;
+
+    
 }
