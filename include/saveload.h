@@ -35,5 +35,7 @@ void save_slot_path(int slot, char *path, size_t size);
 /* Returns 1 on success, 0 on failure. */
 int save_game_file(const char *path, const GameState *game, int ai_mode, int ai_difficulty);
 
+//Returns 1 on success, 0 if there is no save file,-1 if the file is corrupted or holds an invalid game.//
+int load_game_file(const char *path, GameState *game, int *ai_mode, int *ai_difficulty, time_t *saved_at);
 
 #endif
