@@ -127,4 +127,13 @@ int load_game_file(const char *path, GameState *game,
     for (int r = 0; r < g.rows; r++)
         for (int c = 0; c < g.cols; c++)
             g.board[r][c] = buf[n++];
-}
+    
+     /* The CRC proves the file is intact; this proves the game is legal. */
+    if (!rules_validate_state(&g) || rules_is_terminal(&g)) return -1;
+
+    *game = g;
+    *ai_mode = mode;
+    *ai_difficulty = difficulty;
+    *saved_at = (time_t)time_saved;
+    return 1;
+  }
