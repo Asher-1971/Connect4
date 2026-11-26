@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <ctype.h>
 #include <errno.h>
 #include <limits.h>
 #include <stdlib.h>
@@ -91,40 +92,89 @@ void terminal_clear_screen(void) {
     fflush(stdout);
 }
 
+/* Reads one line of input with surrounding spaces removed.
+ * Returns a pointer into buf, or NULL if input has closed. */
+static char *read_line(char *buf, size_t size) {
+    while (1) {
+        if (!fgets(buf, (int)size, stdin)) return NULL;
+        if (strchr(buf, '\n')) break;
+        int ch;
+        while ((ch = getchar()) != '\n' && ch != EOF) {}
+        if (ch == EOF) return NULL;
+        printf("Too long, try again: ");
+    }
+    char *start = buf;
+    while (isspace((unsigned char)*start)) start++;
+    char *end = start + strlen(start);
+    while (end > start && isspace((unsigned char)end[-1])) *--end = '\0';
+    return start;
+}
+
 Move terminal_read_move(const GameState *game) {
     /* col -1 = input closed, -2 = save and quit, -3 = invalid, try again */
     Move closed = {-1, MOVE_NORMAL};
     Move invalid = {-3, MOVE_NORMAL};
     if (!game) return closed;
 
+    /* Only offer the power-ups this player still has. */
     int p = game->current_player;
-    printf("Enter a column (1-%d), or 0 to save and quit: ", game->cols);
-    int column = terminal_read_int();
-    if (column == -1) return closed;
-    if (column == 0) return (Move){-2, MOVE_NORMAL};
+    bool bomb_left = game->powerups && !game->bomb_used[p];
+    bool anvil_left = game->powerups && !game->anvil_used[p];
+
+    printf("Enter a column (1-%d)", game->cols);
+    if (bomb_left) printf(", b = bomb");
+    if (anvil_left) printf(", a = anvil");
+    printf(", 0 = save and quit: ");
+
+    char line[128];
+    char *input = read_line(line, sizeof line);
+    if (!input) return closed;
+
+    MoveType type = MOVE_NORMAL;
+    int column;
+    char key = (char)tolower((unsigned char)input[0]);
+
+    if (input[0] != '\0' && input[1] == '\0' && (key == 'b' || key == 'a')) {
+        /* Power-up picked first: check it's available, then ask the column. */
+        if (!game->powerups) {
+            printf("Power-ups are off in this game.\n");
+            return invalid;
+        }
+        if ((key == 'b' && !bomb_left) || (key == 'a' && !anvil_left)) {
+            printf("You've already used your %s.\n",
+                   key == 'b' ? "bomb" : "anvil");
+            return invalid;
+        }
+        type = (key == 'b') ? MOVE_BOMB : MOVE_ANVIL;
+        printf("%s ready. Column (1-%d), or 0 to cancel: ",
+               key == 'b' ? "Bomb" : "Anvil", game->cols);
+        column = terminal_read_int();
+        if (column == -1) return closed;
+        if (column == 0) return invalid;          /* cancelled: ask again */
+    } else {
+        /* A plain number: a normal disc, or 0 to save. */
+        char *end;
+        errno = 0;
+        long value = strtol(input, &end, 10);
+        if (end == input || *end != '\0' || errno == ERANGE ||
+            value < 0 || value > INT_MAX) {
+            printf("Invalid input.\n");
+            return invalid;
+        }
+        column = (int)value;
+        if (column == 0) return (Move){-2, MOVE_NORMAL};
+    }
+
     if (column < 1 || column > game->cols) {
         printf("Invalid column.\n");
         return invalid;
     }
 
-    int power_type = MOVE_NORMAL;
-    if (game->powerups) {
-        printf("Disc: 0 normal, 1 bomb%s, 2 anvil%s: ",
-               game->bomb_used[p] ? " (used)" : "",
-               game->anvil_used[p] ? " (used)" : "");
-        power_type = terminal_read_int();
-        if (power_type == -1) return closed;
-        if (power_type < MOVE_NORMAL || power_type > MOVE_ANVIL) {
-            printf("Invalid disc type.\n");
-            return invalid;
-        }
-    }
-
-    Move move = {column - 1, (MoveType)power_type};
+    Move move = {column - 1, type};
     if (!rules_is_valid_move(game, move)) {
-        printf(game->powerups
-               ? "That move isn't allowed (column full or power-up used).\n"
-               : "That column is full.\n");
+        /* An anvil works on any column, so only these two can fail here. */
+        printf(type == MOVE_BOMB ? "A bomb needs a column that isn't full.\n"
+                                 : "That column is full.\n");
         return invalid;
     }
     return move;
