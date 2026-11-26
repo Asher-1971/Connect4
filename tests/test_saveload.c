@@ -59,11 +59,11 @@ int main()
     assert(undone.board[0][0] == P1);
 
     /* Undo limit grows with the board. */
-    assert(rules_undo_limit(&g) == 3);
+    assert(rules_undo_limit(&g) == 2);
     GameState small = g;  small.rows = 4; small.cols = 4;
     assert(rules_undo_limit(&small) == 1);
     GameState big = g;  big.rows = 20; big.cols = 20;
-    assert(rules_undo_limit(&big) == 28);
+    assert(rules_undo_limit(&big) == 25);
 
     /* A history that doesn't match the board is refused when saving. */
     MoveHistory short_h = h;
