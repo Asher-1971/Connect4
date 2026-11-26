@@ -110,6 +110,29 @@ static char *read_line(char *buf, size_t size) {
     return start;
 }
 
+int terminal_read_name(char *out, size_t size, const char *fallback) {
+    char line[128];
+    while (1) {
+        char *input = read_line(line, sizeof line);
+        if (!input) return 0;
+        if (input[0] == '\0') {               /* just Enter: use the default */
+            snprintf(out, size, "%s", fallback);
+            return 1;
+        }
+        size_t len = strlen(input);
+        bool ok = len < size;
+        for (size_t i = 0; ok && i < len; i++) {
+            if (!isprint((unsigned char)input[i])) ok = false;
+        }
+        if (ok) {
+            memcpy(out, input, len + 1);
+            return 1;
+        }
+        printf("Names can be up to %d letters, numbers or spaces: ",
+               (int)size - 1);
+    }
+}
+
 Move terminal_read_move(const GameState *game, int undos_left) {
     /* col -1 = input closed, -2 = save and quit, -3 = invalid, try again,
      * -4 = undo (only offered when undos_left > 0) */

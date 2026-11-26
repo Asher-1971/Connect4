@@ -22,6 +22,7 @@ int main()
 
     GameState g = {0}, out = {0};
     MoveHistory h = {0}, hout = {0};
+    char names[3][NAME_LEN] = {"", "Ali", "Sara"}, nout[3][NAME_LEN];
     g.rows = 6; g.cols = 7; g.win_length = 4;
     terminal_init_board(&g);
     int cols[] = {3, 3, 0, 6, 2};
@@ -32,8 +33,8 @@ int main()
     /* Save then load gives back the same game, history, mode and time. */
     int mode = 0, diff = 0;
     time_t when = 0;
-    assert(save_game_file(TEST_FILE, &g, &h, 2, 3));
-    assert(load_game_file(TEST_FILE, &out, &hout, &mode, &diff, &when) == 1);
+    assert(save_game_file(TEST_FILE, &g, &h, names[1], names[2], 2, 3));
+    assert(load_game_file(TEST_FILE, &out, &hout, nout, &mode, &diff, &when) == 1);
     assert(memcmp(g.board, out.board, sizeof g.board) == 0);
     assert(out.rows == 6 && out.cols == 7 && out.win_length == 4);
     assert(out.current_player == g.current_player);
@@ -42,11 +43,12 @@ int main()
     assert(when > 0 && time(NULL) - when < 60);
     assert(out.powerups == false);
     assert(hout.count == 5 && hout.undos_used[PLAYER_ONE] == 1);
+    assert(strcmp(nout[1], "Ali") == 0 && strcmp(nout[2], "Sara") == 0);
     for (int i = 0; i < 5; i++)
         assert(hout.moves[i].col == cols[i]);
 
     /* history can be NULL when only the game is wanted. */
-    assert(load_game_file(TEST_FILE, &out, NULL, &mode, &diff, &when) == 1);
+    assert(load_game_file(TEST_FILE, &out, NULL, NULL, &mode, &diff, &when) == 1);
 
     /* Undo = replay without the last two moves. */
     GameState undone;
@@ -66,7 +68,11 @@ int main()
     /* A history that doesn't match the board is refused when saving. */
     MoveHistory short_h = h;
     short_h.count = 4;
-    assert(!save_game_file(TEST_FILE, &g, &short_h, 2, 3));
+    assert(!save_game_file(TEST_FILE, &g, &short_h, names[1], names[2], 2, 3));
+
+    /* An empty name is refused too. */
+    char no_name[3][NAME_LEN] = {"", "", "Sara"};
+    assert(!save_game_file(TEST_FILE, &g, &h, no_name[1], no_name[2], 2, 3));
 
     /* A power-ups game keeps its setting, used power-ups and history. */
     GameState pg = {0}, pout = {0};
@@ -75,12 +81,12 @@ int main()
     terminal_init_board(&pg);
     play(&pg, &ph, (Move){3, MOVE_NORMAL});
     play(&pg, &ph, (Move){3, MOVE_ANVIL});
-    assert(save_game_file(TEST_FILE, &pg, &ph, 1, 0));
-    assert(load_game_file(TEST_FILE, &pout, &hout, &mode, &diff, &when) == 1);
+    assert(save_game_file(TEST_FILE, &pg, &ph, names[1], names[2], 1, 0));
+    assert(load_game_file(TEST_FILE, &pout, &hout, nout, &mode, &diff, &when) == 1);
     assert(pout.powerups == true && pout.anvil_used[PLAYER_TWO] == true);
     assert(pout.move_count == 2 && pout.piece_count == 0);
     assert(hout.count == 2 && hout.moves[1].type == MOVE_ANVIL);
-    assert(save_game_file(TEST_FILE, &g, &h, 2, 3));   /* back to the first game */
+    assert(save_game_file(TEST_FILE, &g, &h, names[1], names[2], 2, 3));   /* back to the first game */
 
     /* Changing any single byte makes the load fail. */
     uint8_t buf[1024];
@@ -93,7 +99,7 @@ int main()
         fp = fopen(TEST_FILE, "wb");
         fwrite(buf, 1, len, fp);
         fclose(fp);
-        assert(load_game_file(TEST_FILE, &out, &hout, &mode, &diff, &when) == -1);
+        assert(load_game_file(TEST_FILE, &out, &hout, nout, &mode, &diff, &when) == -1);
         buf[i] ^= 0x01;
     }
 
@@ -108,11 +114,11 @@ int main()
     fp = fopen(TEST_FILE, "wb");
     fwrite(buf, 1, len, fp);
     fclose(fp);
-    assert(load_game_file(TEST_FILE, &out, &hout, &mode, &diff, &when) == -1);
+    assert(load_game_file(TEST_FILE, &out, &hout, nout, &mode, &diff, &when) == -1);
 
     /* Missing file. */
     remove(TEST_FILE);
-    assert(load_game_file(TEST_FILE, &out, &hout, &mode, &diff, &when) == 0);
+    assert(load_game_file(TEST_FILE, &out, &hout, nout, &mode, &diff, &when) == 0);
 
     printf("All save/load tests passed.\n");
     return 0;

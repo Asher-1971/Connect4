@@ -1,3 +1,4 @@
+#include <ctype.h>
 #include <stdio.h>
 #include <string.h>
 
@@ -5,8 +6,8 @@
 #include "rules.h"
 
 #define SAVE_MAGIC    "C4SV"
-#define SAVE_VERSION  5    /* 5: added undo counts and the move list */
-#define HEADER_SIZE   34   /* every field before the board */
+#define SAVE_VERSION  6    /* 6: added player names */
+#define HEADER_SIZE   66   /* every field before the board */
 #define MAX_FILE_SIZE (HEADER_SIZE + MAX_SIZE * MAX_SIZE + MAX_MOVES * 2 + 4)
 
 /* CRC-32 (the ZIP/PNG standard): long division of the data by the
@@ -29,15 +30,29 @@ uint32_t save_crc32(const uint8_t *data, size_t len)
     return crc ^ 0xFFFFFFFFu;
 }
 
+/* A name is 1-15 printable characters followed by zeros. */
+static bool valid_name(const char *name)
+{
+    const char *end = memchr(name, 0, NAME_LEN);
+    if (!end || end == name) return false;
+    size_t len = (size_t)(end - name);
+    for (size_t i = 0; i < len; i++)
+        if (!isprint((unsigned char)name[i])) return false;
+    return true;
+}
+
 void save_slot_path(int slot, char *path, size_t size)
 {
     snprintf(path, size, "connect4_save%d.bin", slot);
 }
 
 int save_game_file(const char *path, const GameState *game,
-                   const MoveHistory *history, int ai_mode, int ai_difficulty)
+                   const MoveHistory *history,
+                   const char *name1, const char *name2,
+                   int ai_mode, int ai_difficulty)
 {
-    if (!path || !history || !rules_validate_state(game) ||
+    const char *names[] = {NULL, name1, name2};
+    if (!path || !history || !name1 || !name2 || !rules_validate_state(game) ||
         history->count != game->move_count || history->count > MAX_MOVES)
         return 0;
 
@@ -65,6 +80,12 @@ int save_game_file(const char *path, const GameState *game,
     buf[n++] = game->powerups;
     buf[n++] = (uint8_t)history->undos_used[PLAYER_ONE];
     buf[n++] = (uint8_t)history->undos_used[PLAYER_TWO];
+    for (int p = PLAYER_ONE; p <= PLAYER_TWO; p++) {
+        if (strlen(names[p]) >= NAME_LEN || !valid_name(names[p])) return 0;
+        memset(buf + n, 0, NAME_LEN);
+        memcpy(buf + n, names[p], strlen(names[p]));
+        n += NAME_LEN;
+    }
     for (int r = 0; r < game->rows; r++)
         for (int c = 0; c < game->cols; c++)
             buf[n++] = game->board[r][c];
@@ -93,7 +114,7 @@ int save_game_file(const char *path, const GameState *game,
 }
 
 int load_game_file(const char *path, GameState *game, MoveHistory *history,
-                   int *ai_mode, int *ai_difficulty, time_t *saved_at)
+                   char names[MAX_PLAYERS + 1][NAME_LEN], int *ai_mode, int *ai_difficulty, time_t *saved_at)
 {
     FILE *fp = fopen(path, "rb");
     if (!fp) return 0;
@@ -131,6 +152,12 @@ int load_game_file(const char *path, GameState *game, MoveHistory *history,
     MoveHistory h = {0};
     h.undos_used[PLAYER_ONE] = buf[n++];
     h.undos_used[PLAYER_TWO] = buf[n++];
+    char loaded_names[MAX_PLAYERS + 1][NAME_LEN] = {{0}};
+    for (int p = PLAYER_ONE; p <= PLAYER_TWO; p++) {
+        memcpy(loaded_names[p], buf + n, NAME_LEN);
+        n += NAME_LEN;
+        if (!valid_name(loaded_names[p])) return -1;
+    }
     g.move_count = moves;
     g.piece_count = pieces;
 
@@ -169,6 +196,7 @@ int load_game_file(const char *path, GameState *game, MoveHistory *history,
 
     *game = g;
     if (history) *history = h;
+    if (names) memcpy(names, loaded_names, sizeof loaded_names);
     *ai_mode = mode;
     *ai_difficulty = difficulty;
     *saved_at = (time_t)time_saved;

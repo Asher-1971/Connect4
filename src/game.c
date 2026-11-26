@@ -1,5 +1,7 @@
 #include <stdio.h>
+#include <ctype.h>
 #include <stdlib.h>
+#include <string.h>
 #include <time.h>
 
 #include "game.h"
@@ -24,7 +26,7 @@ int saveGame(const GameState *game, const GameConfig *config)
             int mode, diff;
             time_t when;
             save_slot_path(s, path, sizeof path);
-            if (load_game_file(path, &tmp, NULL, &mode, &diff, &when) != 1) {
+            if (load_game_file(path, &tmp, NULL, NULL, &mode, &diff, &when) != 1) {
                 slot = s;
                 break;
             }
@@ -38,6 +40,7 @@ int saveGame(const GameState *game, const GameConfig *config)
     char path[64];
     save_slot_path(slot, path, sizeof path);
     if (!save_game_file(path, game, &config->history,
+                        config->names[PLAYER_ONE], config->names[PLAYER_TWO],
                         config->ai_mode, config->ai_difficulty)) {
         printf("Save failed.\n");
         return 0;
@@ -49,6 +52,7 @@ int saveGame(const GameState *game, const GameConfig *config)
 typedef struct {
     GameState game;
     MoveHistory history;
+    char names[MAX_PLAYERS + 1][NAME_LEN];
     int ai_mode;
     int ai_difficulty;
     int slot;
@@ -65,8 +69,8 @@ int loadGame(GameState *game, GameConfig *config)
         char path[64];
         SaveInfo info;
         save_slot_path(s, path, sizeof path);
-        if (load_game_file(path, &info.game, &info.history, &info.ai_mode,
-                           &info.ai_difficulty, &info.saved_at) != 1) {
+        if (load_game_file(path, &info.game, &info.history, info.names,
+                           &info.ai_mode, &info.ai_difficulty, &info.saved_at) != 1) {
             continue;   /* empty or corrupted slot */
         }
         info.slot = s;
@@ -88,11 +92,12 @@ int loadGame(GameState *game, GameConfig *config)
         char when[64] = "unknown time";
         struct tm *local = localtime(&saves[i].saved_at);
         if (local) strftime(when, sizeof when, "%d %b %Y, %H:%M", local);
-        printf("%d. %s  (%dx%d, %s%s, %d moves)\n", i + 1, when,
+        printf("%d. %s  %s vs %s  (%dx%d%s, %d move%s)\n", i + 1, when,
+               saves[i].names[PLAYER_ONE], saves[i].names[PLAYER_TWO],
                saves[i].game.rows, saves[i].game.cols,
-               saves[i].ai_mode == 2 ? "Human vs AI" : "Human vs Human",
                saves[i].game.powerups ? ", power-ups" : "",
-               saves[i].game.move_count);
+               saves[i].game.move_count,
+               saves[i].game.move_count == 1 ? "" : "s");
     }
     printf("0. Start a new game\nEnter your choice: ");
 
@@ -110,10 +115,21 @@ int loadGame(GameState *game, GameConfig *config)
     config->ai_difficulty = picked->ai_difficulty;
     config->save_slot = picked->slot;
     config->history = picked->history;
+    memcpy(config->names, picked->names, sizeof config->names);
     config->win = false;
     config->tie = false;
     printf("\n");
     return 1;
+}
+
+/* Names match without caring about capitals, so "Ali" and "ali" are one player. */
+static bool sameName(const char *a, const char *b)
+{
+    while (*a && tolower((unsigned char)*a) == tolower((unsigned char)*b)) {
+        a++;
+        b++;
+    }
+    return tolower((unsigned char)*a) == tolower((unsigned char)*b);
 }
 
 void gameInputs(GameState *game, GameConfig *config)
@@ -241,6 +257,37 @@ void gameInputs(GameState *game, GameConfig *config)
         }
     }
 
+    /* Names are shown in prompts and in the saved games list. */
+    if (config->ai_mode == 1) {
+        printf("\nPlayer 1 (X) name (Enter for \"Player 1\"): ");
+        if (!terminal_read_name(config->names[PLAYER_ONE], NAME_LEN,
+                                "Player 1")) {
+            config->ai_mode = 0;
+            return;
+        }
+        printf("Player 2 (O) name (Enter for \"Player 2\"): ");
+        while (1) {
+            if (!terminal_read_name(config->names[PLAYER_TWO], NAME_LEN,
+                                    "Player 2")) {
+                config->ai_mode = 0;
+                return;
+            }
+            if (!sameName(config->names[PLAYER_ONE],
+                          config->names[PLAYER_TWO])) {
+                break;
+            }
+            printf("Pick a different name from Player 1: ");
+        }
+    } else {
+        printf("\nYour name (Enter for \"Player\"): ");
+        if (!terminal_read_name(config->names[PLAYER_ONE], NAME_LEN,
+                                "Player")) {
+            config->ai_mode = 0;
+            return;
+        }
+        snprintf(config->names[PLAYER_TWO], NAME_LEN, "Computer");
+    }
+
     config->win = false;
     config->tie = false;
     game->move_count = 0;
@@ -328,6 +375,14 @@ static bool undoMove(GameState *game, MoveHistory *history, const char *who,
     return true;
 }
 
+/* "Ali (X)": the name and disc shown in prompts and messages. */
+static void playerLabel(const GameConfig *config, int player,
+                        char *out, size_t size)
+{
+    snprintf(out, size, "%s (%c)", config->names[player],
+             player == PLAYER_ONE ? 'X' : 'O');
+}
+
 void uiHumanvsHuman(GameState *game, GameConfig *config)
 {
     if (!game || !config) {
@@ -346,7 +401,9 @@ void uiHumanvsHuman(GameState *game, GameConfig *config)
             config->tie = true;
             break;
         } else if (winner != 0) {
-            printf("Player %d (%c) wins!\n", winner, winner == P1 ? 'X' : 'O');
+            char winnerName[32];
+            playerLabel(config, winner, winnerName, sizeof winnerName);
+            printf("%s wins!\n", winnerName);
             config->win = true;
             break;
         }
@@ -357,8 +414,7 @@ void uiHumanvsHuman(GameState *game, GameConfig *config)
         }
 
         char who[32];
-        snprintf(who, sizeof who, "Player %d (%c)", game->current_player,
-                 game->current_player == PLAYER_ONE ? 'X' : 'O');
+        playerLabel(config, game->current_player, who, sizeof who);
         printf("%s turn:\n", who);
 
         Move move = terminal_read_move(game, undosLeft(game, &config->history));
@@ -396,6 +452,9 @@ void uiHumanvsAI(GameState *game, GameConfig *config)
     }
 
     char last[128] = "";   /* what happened on the previous move */
+    char me[32], ai[32];
+    playerLabel(config, PLAYER_ONE, me, sizeof me);
+    playerLabel(config, PLAYER_TWO, ai, sizeof ai);
 
     while (!config->win && !config->tie) {
         terminal_print_board(game);
@@ -407,17 +466,17 @@ void uiHumanvsAI(GameState *game, GameConfig *config)
             config->tie = true;
             break;
         } else if (winner == P1) {
-            printf("You win!\n");
+            printf("%s wins!\n", me);
             config->win = true;
             break;
         } else if (winner == P2) {
-            printf("AI wins!\n");
+            printf("%s wins!\n", ai);
             config->win = true;
             break;
         }
 
         if (game->current_player == PLAYER_ONE) {
-            printf("Your turn (X):\n");
+            printf("%s turn:\n", me);
             Move move = terminal_read_move(game,
                                            undosLeft(game, &config->history));
             if (move.col == -1) return;          /* input closed */
@@ -427,15 +486,15 @@ void uiHumanvsAI(GameState *game, GameConfig *config)
                 return;
             }
             if (move.col == -4) {                /* u = undo */
-                if (undoMove(game, &config->history, "You", last,
+                if (undoMove(game, &config->history, me, last,
                              sizeof last)) {
                     terminal_clear_screen();
                 }
                 continue;
             }
-            if (!playMove(game, &config->history, move, "You", last, sizeof last)) continue;
+            if (!playMove(game, &config->history, move, me, last, sizeof last)) continue;
         } else {
-            printf("AI turn (O):\n");
+            printf("%s turn:\n", ai);
 
             if (difficulty == AI_EASY) {
                 Move valid[MAX_DIM * 3];
@@ -455,11 +514,11 @@ void uiHumanvsAI(GameState *game, GameConfig *config)
                 Move move = validCount > 0
                     ? valid[rand() % validCount]
                     : (Move){-1, MOVE_NORMAL};
-                if (!playMove(game, &config->history, move, "AI", last, sizeof last)) continue;
+                if (!playMove(game, &config->history, move, ai, last, sizeof last)) continue;
             } else {
                 int timeBudget = (difficulty == AI_NORMAL) ? 100 : 1000;
                 Move move = find_best_move(game, timeBudget);
-                if (!playMove(game, &config->history, move, "AI", last, sizeof last)) continue;
+                if (!playMove(game, &config->history, move, ai, last, sizeof last)) continue;
             }
         }
 
