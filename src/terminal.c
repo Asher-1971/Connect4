@@ -67,8 +67,11 @@ void terminal_init_board(GameState *game) {
 void terminal_print_board(const GameState *game) {
     if (!game) return;
 
+    /* Two-digit column numbers need wider cells so pieces stay lined up. */
+    int width = game->cols > 9 ? 3 : 2;
+
     for (int c = 0; c < game->cols; c++) {
-        printf("%d ", c + 1);
+        printf("%-*d", width, c + 1);
     }
     printf("\n");
 
@@ -77,7 +80,7 @@ void terminal_print_board(const GameState *game) {
             char piece = game->board[r][c] == P1 ? 'X'
                        : game->board[r][c] == P2 ? 'O'
                        : '.';
-            printf("%c ", piece);
+            printf("%-*c", width, piece);
         }
         printf("\n");
     }
@@ -89,23 +92,40 @@ void terminal_clear_screen(void) {
 }
 
 Move terminal_read_move(const GameState *game) {
-    Move invalid = {-1, MOVE_NORMAL};
-    if (!game) return invalid;
+    /* col -1 = input closed, -2 = save and quit, -3 = invalid, try again */
+    Move closed = {-1, MOVE_NORMAL};
+    Move invalid = {-3, MOVE_NORMAL};
+    if (!game) return closed;
 
-    printf("Enter column (1-%d), optional power-up (0=N, 1=B, 2=A): ",
-           game->cols);
+    int p = game->current_player;
+    printf("Enter a column (1-%d), or 0 to save and quit: ", game->cols);
     int column = terminal_read_int();
-    if (column == -1) return invalid;
+    if (column == -1) return closed;
     if (column == 0) return (Move){-2, MOVE_NORMAL};
-
-    printf("Power-up (0 normal, 1 bomb, 2 anvil): ");
-    int power_type = terminal_read_int();
-    if (power_type < MOVE_NORMAL || power_type > MOVE_ANVIL) {
+    if (column < 1 || column > game->cols) {
+        printf("Invalid column.\n");
         return invalid;
     }
-    if (column < 1 || column > game->cols) return invalid;
+
+    int power_type = MOVE_NORMAL;
+    if (game->powerups) {
+        printf("Disc: 0 normal, 1 bomb%s, 2 anvil%s: ",
+               game->bomb_used[p] ? " (used)" : "",
+               game->anvil_used[p] ? " (used)" : "");
+        power_type = terminal_read_int();
+        if (power_type == -1) return closed;
+        if (power_type < MOVE_NORMAL || power_type > MOVE_ANVIL) {
+            printf("Invalid disc type.\n");
+            return invalid;
+        }
+    }
 
     Move move = {column - 1, (MoveType)power_type};
-    if (!rules_is_valid_move(game, move)) return invalid;
+    if (!rules_is_valid_move(game, move)) {
+        printf(game->powerups
+               ? "That move isn't allowed (column full or power-up used).\n"
+               : "That column is full.\n");
+        return invalid;
+    }
     return move;
 }
