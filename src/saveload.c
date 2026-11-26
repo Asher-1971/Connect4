@@ -5,9 +5,9 @@
 #include "rules.h"
 
 #define SAVE_MAGIC    "C4SV"
-#define SAVE_VERSION  4    /* 4: added the power-ups byte */
-#define HEADER_SIZE   32   /* every field before the board */
-#define MAX_FILE_SIZE (HEADER_SIZE + MAX_SIZE * MAX_SIZE + 4)
+#define SAVE_VERSION  5    /* 5: added undo counts and the move list */
+#define HEADER_SIZE   34   /* every field before the board */
+#define MAX_FILE_SIZE (HEADER_SIZE + MAX_SIZE * MAX_SIZE + MAX_MOVES * 2 + 4)
 
 /* CRC-32 (the ZIP/PNG standard): long division of the data by the
  polynomial 0xEDB88320, using XOR instead of subtraction.
@@ -34,9 +34,12 @@ void save_slot_path(int slot, char *path, size_t size)
     snprintf(path, size, "connect4_save%d.bin", slot);
 }
 
-int save_game_file(const char *path, const GameState *game, int ai_mode, int ai_difficulty)
+int save_game_file(const char *path, const GameState *game,
+                   const MoveHistory *history, int ai_mode, int ai_difficulty)
 {
-    if (!path || !rules_validate_state(game)) return 0;
+    if (!path || !history || !rules_validate_state(game) ||
+        history->count != game->move_count || history->count > MAX_MOVES)
+        return 0;
 
     uint8_t buf[MAX_FILE_SIZE];
     size_t n = 0;
@@ -60,9 +63,15 @@ int save_game_file(const char *path, const GameState *game, int ai_mode, int ai_
     buf[n++] = game->anvil_used[PLAYER_ONE];
     buf[n++] = game->anvil_used[PLAYER_TWO];
     buf[n++] = game->powerups;
+    buf[n++] = (uint8_t)history->undos_used[PLAYER_ONE];
+    buf[n++] = (uint8_t)history->undos_used[PLAYER_TWO];
     for (int r = 0; r < game->rows; r++)
         for (int c = 0; c < game->cols; c++)
             buf[n++] = game->board[r][c];
+    for (int i = 0; i < history->count; i++) {
+        buf[n++] = (uint8_t)history->moves[i].col;
+        buf[n++] = (uint8_t)history->moves[i].type;
+    }
 
     uint32_t crc = save_crc32(buf, n);
     memcpy(buf + n, &crc, 4);        
@@ -83,7 +92,7 @@ int save_game_file(const char *path, const GameState *game, int ai_mode, int ai_
     return rename(tmp, path) == 0;
 }
 
-int load_game_file(const char *path, GameState *game,
+int load_game_file(const char *path, GameState *game, MoveHistory *history,
                    int *ai_mode, int *ai_difficulty, time_t *saved_at)
 {
     FILE *fp = fopen(path, "rb");
@@ -119,23 +128,47 @@ int load_game_file(const char *path, GameState *game,
     g.anvil_used[PLAYER_TWO] = buf[n++] != 0;
     int powerups = buf[n++];
     g.powerups = powerups == 1;
+    MoveHistory h = {0};
+    h.undos_used[PLAYER_ONE] = buf[n++];
+    h.undos_used[PLAYER_TWO] = buf[n++];
     g.move_count = moves;
     g.piece_count = pieces;
 
     if (g.rows < MIN_SIZE || g.rows > MAX_SIZE ||
         g.cols < MIN_SIZE || g.cols > MAX_SIZE ||
-        len != (size_t)(HEADER_SIZE + g.rows * g.cols + 4) ||
+        moves < 0 || moves > MAX_MOVES ||
+        len != (size_t)(HEADER_SIZE + g.rows * g.cols + moves * 2 + 4) ||
         mode < 1 || mode > 2 || difficulty < 0 || difficulty > 3 ||
         powerups > 1)
         return -1;
     for (int r = 0; r < g.rows; r++)
         for (int c = 0; c < g.cols; c++)
             g.board[r][c] = buf[n++];
+    h.count = moves;
+    for (int i = 0; i < moves; i++) {
+        h.moves[i].col = buf[n++];
+        int type = buf[n++];
+        if (type > MOVE_ANVIL) return -1;
+        h.moves[i].type = (MoveType)type;
+    }
     
      /* The CRC proves the file is intact; this proves the game is legal. */
     if (!rules_validate_state(&g) || rules_is_terminal(&g)) return -1;
 
+    /* Replaying the moves must give exactly the saved game. */
+    GameState replayed;
+    if (!rules_replay(&g, h.moves, h.count, &replayed) ||
+        memcmp(replayed.board, g.board, sizeof g.board) != 0 ||
+        replayed.current_player != g.current_player ||
+        replayed.piece_count != g.piece_count ||
+        memcmp(replayed.bomb_used, g.bomb_used, sizeof g.bomb_used) != 0 ||
+        memcmp(replayed.anvil_used, g.anvil_used, sizeof g.anvil_used) != 0 ||
+        h.undos_used[PLAYER_ONE] > rules_undo_limit(&g) ||
+        h.undos_used[PLAYER_TWO] > rules_undo_limit(&g))
+        return -1;
+
     *game = g;
+    if (history) *history = h;
     *ai_mode = mode;
     *ai_difficulty = difficulty;
     *saved_at = (time_t)time_saved;

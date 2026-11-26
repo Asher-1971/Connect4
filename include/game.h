@@ -14,6 +14,7 @@ typedef struct {
     bool win;
     bool tie;
     int save_slot;   /* slot the game was resumed from, 0 if new */
+    MoveHistory history;   /* every move so far, for undo and saving */
 } GameConfig;
 
 int saveGame(const GameState *game, const GameConfig *config);

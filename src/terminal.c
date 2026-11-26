@@ -110,8 +110,9 @@ static char *read_line(char *buf, size_t size) {
     return start;
 }
 
-Move terminal_read_move(const GameState *game) {
-    /* col -1 = input closed, -2 = save and quit, -3 = invalid, try again */
+Move terminal_read_move(const GameState *game, int undos_left) {
+    /* col -1 = input closed, -2 = save and quit, -3 = invalid, try again,
+     * -4 = undo (only offered when undos_left > 0) */
     Move closed = {-1, MOVE_NORMAL};
     Move invalid = {-3, MOVE_NORMAL};
     if (!game) return closed;
@@ -124,6 +125,7 @@ Move terminal_read_move(const GameState *game) {
     printf("Enter a column (1-%d)", game->cols);
     if (bomb_left) printf(", b = bomb");
     if (anvil_left) printf(", a = anvil");
+    if (undos_left > 0) printf(", u = undo (%d left)", undos_left);
     printf(", 0 = save and quit: ");
 
     char line[128];
@@ -133,6 +135,12 @@ Move terminal_read_move(const GameState *game) {
     MoveType type = MOVE_NORMAL;
     int column;
     char key = (char)tolower((unsigned char)input[0]);
+
+    if (input[0] != '\0' && input[1] == '\0' && key == 'u') {
+        if (undos_left > 0) return (Move){-4, MOVE_NORMAL};
+        printf("You can't undo right now.\n");
+        return invalid;
+    }
 
     if (input[0] != '\0' && input[1] == '\0' && (key == 'b' || key == 'a')) {
         /* Power-up picked first: check it's available, then ask the column. */
