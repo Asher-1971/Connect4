@@ -81,7 +81,7 @@ the menu when you start a new game (Off or On), so one program covers both.
 Build the game with GCC:
 
 ```bash
-gcc -std=c17 -Wall -Wextra -Werror -pedantic -Iinclude src\game.c src\module3.c src\rules.c src\saveload.c src\terminal.c -o connect4.exe
+gcc -std=c17 -Wall -Wextra -Werror -pedantic -DENABLE_POWERUPS=0 -Iinclude src\game.c src\module3.c src\rules.c src\terminal.c -o connect4.exe
 ```
 
 Build and run the rules tests:
@@ -97,7 +97,6 @@ Build and run the save/load tests:
 gcc -std=c17 -Wall -Wextra -Werror -pedantic -Iinclude tests\test_saveload.c src\saveload.c src\module3.c src\rules.c src\terminal.c -o test-saveload.exe
 test-saveload.exe
 ```
-
 ### Save files
 
 Enter `0` during a game to save and quit, then pick **Resume Game** from the
