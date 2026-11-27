@@ -24,7 +24,7 @@ int saveGame(const GameState *game, const GameConfig *config)
             int mode, diff;
             time_t when;
             save_slot_path(s, path, sizeof path);
-            if (load_game_file(path, &tmp, &mode, &diff, &when) != 1) {
+            if (load_game_file(path, &tmp, NULL, &mode, &diff, &when) != 1) {
                 slot = s;
                 break;
             }
@@ -37,7 +37,8 @@ int saveGame(const GameState *game, const GameConfig *config)
 
     char path[64];
     save_slot_path(slot, path, sizeof path);
-    if (!save_game_file(path, game, config->ai_mode, config->ai_difficulty)) {
+    if (!save_game_file(path, game, &config->history,
+                        config->ai_mode, config->ai_difficulty)) {
         printf("Save failed.\n");
         return 0;
     }
@@ -47,6 +48,7 @@ int saveGame(const GameState *game, const GameConfig *config)
 
 typedef struct {
     GameState game;
+    MoveHistory history;
     int ai_mode;
     int ai_difficulty;
     int slot;
@@ -63,7 +65,7 @@ int loadGame(GameState *game, GameConfig *config)
         char path[64];
         SaveInfo info;
         save_slot_path(s, path, sizeof path);
-        if (load_game_file(path, &info.game, &info.ai_mode,
+        if (load_game_file(path, &info.game, &info.history, &info.ai_mode,
                            &info.ai_difficulty, &info.saved_at) != 1) {
             continue;   /* empty or corrupted slot */
         }
@@ -107,6 +109,7 @@ int loadGame(GameState *game, GameConfig *config)
     config->ai_mode = picked->ai_mode;
     config->ai_difficulty = picked->ai_difficulty;
     config->save_slot = picked->slot;
+    config->history = picked->history;
     config->win = false;
     config->tie = false;
     printf("\n");
@@ -244,18 +247,21 @@ void gameInputs(GameState *game, GameConfig *config)
     game->piece_count = 0;
     game->current_player = PLAYER_ONE;
     terminal_init_board(game);
+    config->history = (MoveHistory){0};
 }
 
 /* Applies a move and writes a sentence about it into msg, so it can be shown
  * under the board after the screen is cleared. Power-ups stand out with ***.
  * Returns false (and changes nothing) if the move isn't allowed. */
-static bool playMove(GameState *game, Move move, const char *who,
-                     char *msg, size_t size)
+static bool playMove(GameState *game, MoveHistory *history, Move move,
+                     const char *who, char *msg, size_t size)
 {
     GameState before = *game;
-    if (move.col < 0 || !rules_apply_move(game, move, game)) {
+    if (move.col < 0 || history->count >= MAX_MOVES ||
+        !rules_apply_move(game, move, game)) {
         return false;
     }
+    history->moves[history->count++] = move;
 
     if (move.type == MOVE_NORMAL) {
         snprintf(msg, size, "%s dropped a disc in column %d.",
@@ -282,6 +288,43 @@ static bool playMove(GameState *game, Move move, const char *who,
         int ch;
         while ((ch = getchar()) != '\n' && ch != EOF) {}
     }
+    return true;
+}
+
+/* Undos the current player can still use now; 0 hides the option.
+ * An undo needs two moves to take back: your own and the reply to it. */
+static int undosLeft(const GameState *game, const MoveHistory *history)
+{
+    if (history->count < 2) return 0;
+    int left = rules_undo_limit(game) - history->undos_used[game->current_player];
+    return left > 0 ? left : 0;
+}
+
+/* Takes back the current player's last move and the reply after it, so it is
+ * their turn again in the position before their move. Power-ups can't be
+ * taken back. Returns false (and changes nothing) if the undo isn't allowed. */
+static bool undoMove(GameState *game, MoveHistory *history, const char *who,
+                     char *msg, size_t size)
+{
+    int n = history->count;
+    if (history->moves[n - 1].type != MOVE_NORMAL ||
+        history->moves[n - 2].type != MOVE_NORMAL) {
+        printf("You can't undo a power-up.\n");
+        return false;
+    }
+
+    GameState replayed;
+    if (!rules_replay(game, history->moves, n - 2, &replayed)) {
+        printf("Undo failed.\n");
+        return false;
+    }
+    *game = replayed;
+    history->count = n - 2;
+    history->undos_used[game->current_player]++;
+
+    int left = rules_undo_limit(game) - history->undos_used[game->current_player];
+    snprintf(msg, size, "%s took back a move (%d undo%s left).",
+             who, left, left == 1 ? "" : "s");
     return true;
 }
 
@@ -318,14 +361,20 @@ void uiHumanvsHuman(GameState *game, GameConfig *config)
                  game->current_player == PLAYER_ONE ? 'X' : 'O');
         printf("%s turn:\n", who);
 
-        Move move = terminal_read_move(game);
+        Move move = terminal_read_move(game, undosLeft(game, &config->history));
         if (move.col == -1) return;              /* input closed */
         if (move.col == -2) {                    /* 0 = save and quit */
             if (!saveGame(game, config)) continue;
             printf("Exiting...\n");
             return;
         }
-        if (!playMove(game, move, who, last, sizeof last)) continue;
+        if (move.col == -4) {                    /* u = undo */
+            if (undoMove(game, &config->history, who, last, sizeof last)) {
+                terminal_clear_screen();
+            }
+            continue;
+        }
+        if (!playMove(game, &config->history, move, who, last, sizeof last)) continue;
 
         terminal_clear_screen();
     }
@@ -369,14 +418,22 @@ void uiHumanvsAI(GameState *game, GameConfig *config)
 
         if (game->current_player == PLAYER_ONE) {
             printf("Your turn (X):\n");
-            Move move = terminal_read_move(game);
+            Move move = terminal_read_move(game,
+                                           undosLeft(game, &config->history));
             if (move.col == -1) return;          /* input closed */
             if (move.col == -2) {                /* 0 = save and quit */
                 if (!saveGame(game, config)) continue;
                 printf("Exiting...\n");
                 return;
             }
-            if (!playMove(game, move, "You", last, sizeof last)) continue;
+            if (move.col == -4) {                /* u = undo */
+                if (undoMove(game, &config->history, "You", last,
+                             sizeof last)) {
+                    terminal_clear_screen();
+                }
+                continue;
+            }
+            if (!playMove(game, &config->history, move, "You", last, sizeof last)) continue;
         } else {
             printf("AI turn (O):\n");
 
@@ -398,11 +455,11 @@ void uiHumanvsAI(GameState *game, GameConfig *config)
                 Move move = validCount > 0
                     ? valid[rand() % validCount]
                     : (Move){-1, MOVE_NORMAL};
-                if (!playMove(game, move, "AI", last, sizeof last)) continue;
+                if (!playMove(game, &config->history, move, "AI", last, sizeof last)) continue;
             } else {
                 int timeBudget = (difficulty == AI_NORMAL) ? 100 : 1000;
                 Move move = find_best_move(game, timeBudget);
-                if (!playMove(game, move, "AI", last, sizeof last)) continue;
+                if (!playMove(game, &config->history, move, "AI", last, sizeof last)) continue;
             }
         }
 
