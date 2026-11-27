@@ -15,6 +15,7 @@ typedef struct {
     bool tie;
     int save_slot;   /* slot the game was resumed from, 0 if new */
     MoveHistory history;   /* every move so far, for undo and saving */
+    char names[MAX_PLAYERS + 1][NAME_LEN];   /* [1] = X, [2] = O */
 } GameConfig;
 
 int saveGame(const GameState *game, const GameConfig *config);

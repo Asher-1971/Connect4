@@ -39,6 +39,9 @@ typedef struct {
     bool powerups;   /* chosen in the menu: bomb + anvil allowed this game */
 } GameState;
 
+/* Player names: up to 15 characters plus the closing '\0'. */
+#define NAME_LEN 16
+
 /* Enough for any game: a full 20x20 board plus the discs power-ups can clear. */
 #define MAX_MOVES 512
 
