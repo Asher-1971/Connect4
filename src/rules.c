@@ -288,10 +288,10 @@ bool rules_replay(const GameState *settings, const Move *moves, int count,
     return true;
 }
 
-/* Undos each player gets: one for every 14 cells, so 3 on the classic 6x7
- * board, 1 on 4x4 and 28 on 20x20. */
+/* Undos each player gets: one for every 16 cells, so 2 on the classic 6x7
+ * board, 1 on 4x4 and 25 on 20x20. */
 int rules_undo_limit(const GameState *state) {
     if (!state) return 0;
-    int limit = state->rows * state->cols / 14;
+    int limit = state->rows * state->cols / 16;
     return limit < 1 ? 1 : limit;
 }

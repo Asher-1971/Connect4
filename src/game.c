@@ -353,9 +353,18 @@ static int undosLeft(const GameState *game, const MoveHistory *history)
 /* Takes back the current player's last move and the reply after it, so it is
  * their turn again in the position before their move. Power-ups can't be
  * taken back. Returns false (and changes nothing) if the undo isn't allowed. */
-static bool undoMove(GameState *game, MoveHistory *history, const char *who,
-                     char *msg, size_t size)
+/* "Ali (X)": the name and disc shown in prompts and messages. */
+static void playerLabel(const GameConfig *config, int player,
+                        char *out, size_t size)
 {
+    snprintf(out, size, "%s (%c)", config->names[player],
+             player == PLAYER_ONE ? 'X' : 'O');
+}
+
+static bool undoMove(GameState *game, GameConfig *config, char *msg,
+                     size_t size)
+{
+    MoveHistory *history = &config->history;
     int n = history->count;
     if (history->moves[n - 1].type != MOVE_NORMAL ||
         history->moves[n - 2].type != MOVE_NORMAL) {
@@ -372,18 +381,20 @@ static bool undoMove(GameState *game, MoveHistory *history, const char *who,
     history->count = n - 2;
     history->undos_used[game->current_player]++;
 
-    int left = rules_undo_limit(game) - history->undos_used[game->current_player];
-    snprintf(msg, size, "%s took back a move (%d undo%s left).",
-             who, left, left == 1 ? "" : "s");
+    /* Say exactly which two discs came off, newest first. */
+    int me = game->current_player;
+    int them = me == PLAYER_ONE ? PLAYER_TWO : PLAYER_ONE;
+    char meName[32], themName[32];
+    playerLabel(config, me, meName, sizeof meName);
+    playerLabel(config, them, themName, sizeof themName);
+    int left = rules_undo_limit(game) - history->undos_used[me];
+    snprintf(msg, size,
+             "<< UNDO >> Removed %s's disc in column %d and %s's disc in "
+             "column %d. %s has %d undo%s left.",
+             themName, history->moves[n - 1].col + 1,
+             meName, history->moves[n - 2].col + 1,
+             meName, left, left == 1 ? "" : "s");
     return true;
-}
-
-/* "Ali (X)": the name and disc shown in prompts and messages. */
-static void playerLabel(const GameConfig *config, int player,
-                        char *out, size_t size)
-{
-    snprintf(out, size, "%s (%c)", config->names[player],
-             player == PLAYER_ONE ? 'X' : 'O');
 }
 
 void uiHumanvsHuman(GameState *game, GameConfig *config)
@@ -392,7 +403,7 @@ void uiHumanvsHuman(GameState *game, GameConfig *config)
         return;
     }
 
-    char last[128] = "";   /* what happened on the previous move */
+    char last[192] = "";   /* what happened on the previous move */
 
     while (!config->win && !config->tie) {
         terminal_print_board(game);
@@ -428,7 +439,7 @@ void uiHumanvsHuman(GameState *game, GameConfig *config)
             return;
         }
         if (move.col == -4) {                    /* u = undo */
-            if (undoMove(game, &config->history, who, last, sizeof last)) {
+            if (undoMove(game, config, last, sizeof last)) {
                 terminal_clear_screen();
             }
             continue;
@@ -454,7 +465,7 @@ void uiHumanvsAI(GameState *game, GameConfig *config)
         srand((unsigned int)time(NULL));
     }
 
-    char last[128] = "";   /* what happened on the previous move */
+    char last[192] = "";   /* what happened on the previous move */
     char me[32], ai[32];
     playerLabel(config, PLAYER_ONE, me, sizeof me);
     playerLabel(config, PLAYER_TWO, ai, sizeof ai);
@@ -489,7 +500,7 @@ void uiHumanvsAI(GameState *game, GameConfig *config)
                 return;
             }
             if (move.col == -4) {                /* u = undo */
-                if (undoMove(game, &config->history, me, last,
+                if (undoMove(game, config, last,
                              sizeof last)) {
                     terminal_clear_screen();
                 }
