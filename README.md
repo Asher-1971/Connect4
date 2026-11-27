@@ -107,10 +107,7 @@ gcc -std=c17 -Wall -Wextra -Werror -pedantic -Iinclude src/game.c src/module3.c 
 ./connect4
 ```
 
-Clang can be used in place of GCC for the game and rules test. The save/load
-and stats tests currently have `main()` declarations that Clang warns about
-under `-Werror`; build those tests without `-Werror` until their declarations
-are changed to `main(void)`.
+Clang can be used in place of GCC for these commands.
 
 ### Save files
 
@@ -126,10 +123,15 @@ or hand-edited save is rejected instead of loading a broken board.
 
 ### Download Pre-compiled Binaries
 
-In case you do not want to compile the source code yourself, pre-compiled binaries are available for Windows, Linux, and macOS in the [Releases](https://github.com/Asher-1971/Connect4/releases) section.
+Push a version tag such as `v1.0.0` to build and publish all three binaries:
 
-| Operating System | File | Instructions |
-| :--- | :--- | :--- |
-| **Windows** | `connect4-windows-x64.exe` | Just download and double-click to execute, or execute from Command Prompt. |
-| **Linux** | `connect4-linux-x64` | Run `chmod +x connect4-linux-x64 && ./connect4-linux-x64`. |
-| **macOS** | `connect4-macos-universal` | Run `chmod +x connect4-macos-universal && ./connect4-macos-universal`. |
+```bash
+git tag v1.0.0
+git push origin v1.0.0
+```
+
+The workflow builds and tests the game on Linux, macOS, and Windows before
+creating a [GitHub Release](https://github.com/Asher-1971/Connect4/releases)
+with `connect4-linux-x64`, `connect4-macos`, and `connect4-windows.exe`.
+The macOS binary targets the architecture of the hosted macOS runner. On
+Linux, make the downloaded binary executable with `chmod +x connect4-linux-x64`.

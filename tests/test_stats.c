@@ -7,7 +7,7 @@
 
 #define TEST_FILE "test_stats.bin"
 
-int main()
+int main(void)
 {
     remove(TEST_FILE);
 

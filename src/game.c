@@ -389,8 +389,8 @@ static bool undoMove(GameState *game, GameConfig *config, char *msg,
     playerLabel(config, them, themName, sizeof themName);
     int left = rules_undo_limit(game) - history->undos_used[me];
     snprintf(msg, size,
-             "<< UNDO >> Removed %s's disc in column %d and %s's disc in "
-             "column %d. %s has %d undo%s left.",
+             "<< UNDO >> Removed %.19s's disc in column %d and %.19s's disc in "
+             "column %d. %.19s has %d undo%s left.",
              themName, history->moves[n - 1].col + 1,
              meName, history->moves[n - 2].col + 1,
              meName, left, left == 1 ? "" : "s");

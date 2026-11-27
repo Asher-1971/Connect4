@@ -1,0 +1,103 @@
+name: Build and release binaries
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            binary: connect4-linux-x64
+          - os: macos-latest
+            binary: connect4-macos
+          - os: windows-latest
+            binary: connect4-windows.exe
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v7
+
+      - name: Install Windows GCC
+        if: runner.os == 'Windows'
+        uses: msys2/setup-msys2@v2
+        with:
+          msystem: UCRT64
+          update: true
+          install: mingw-w64-ucrt-x86_64-gcc
+
+      - name: Build and test on Linux/macOS
+        if: runner.os != 'Windows'
+        shell: bash
+        run: |
+          mkdir -p dist
+          cc -std=c17 -O2 -Wall -Wextra -Werror -pedantic -Iinclude \
+            src/*.c -o "dist/${{ matrix.binary }}"
+          cc -std=c17 -O2 -Wall -Wextra -Werror -pedantic -Iinclude \
+            tests/test_canonical_state.c src/module3.c src/rules.c src/terminal.c \
+            -o dist/test-rules
+          cc -std=c17 -O2 -Wall -Wextra -Werror -pedantic -Iinclude \
+            tests/test_saveload.c src/saveload.c src/module3.c src/rules.c src/terminal.c \
+            -o dist/test-saveload
+          cc -std=c17 -O2 -Wall -Wextra -Werror -pedantic -Iinclude \
+            tests/test_stats.c src/stats.c src/saveload.c src/rules.c \
+            -o dist/test-stats
+          mkdir -p dist/test-work
+          (cd dist/test-work && ../test-rules && ../test-saveload && ../test-stats)
+
+      - name: Build and test on Windows
+        if: runner.os == 'Windows'
+        shell: msys2 {0}
+        run: |
+          mkdir -p dist
+          gcc -std=c17 -O2 -Wall -Wextra -Werror -pedantic -static -Iinclude \
+            src/*.c -o "dist/${{ matrix.binary }}"
+          gcc -std=c17 -O2 -Wall -Wextra -Werror -pedantic -Iinclude \
+            tests/test_canonical_state.c src/module3.c src/rules.c src/terminal.c \
+            -o dist/test-rules.exe
+          gcc -std=c17 -O2 -Wall -Wextra -Werror -pedantic -Iinclude \
+            tests/test_saveload.c src/saveload.c src/module3.c src/rules.c src/terminal.c \
+            -o dist/test-saveload.exe
+          gcc -std=c17 -O2 -Wall -Wextra -Werror -pedantic -Iinclude \
+            tests/test_stats.c src/stats.c src/saveload.c src/rules.c \
+            -o dist/test-stats.exe
+          mkdir -p dist/test-work
+          (cd dist/test-work && ../test-rules.exe && ../test-saveload.exe && ../test-stats.exe)
+
+      - name: Upload platform binary
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.binary }}
+          path: dist/${{ matrix.binary }}
+          if-no-files-found: error
+          retention-days: 1
+
+  release:
+    name: Publish GitHub release
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Download platform binaries
+        uses: actions/download-artifact@v4
+        with:
+          pattern: connect4-*
+          path: dist
+          merge-multiple: true
+
+      - name: Create release and upload binaries
+        uses: softprops/action-gh-release@v3
+        with:
+          files: dist/*
+          generate_release_notes: true
+          fail_on_unmatched_files: true
