@@ -1,5 +1,4 @@
 #include <stdio.h>
-#include <ctype.h>
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
@@ -8,6 +7,7 @@
 #include "module3.h"
 #include "rules.h"
 #include "saveload.h"
+#include "stats.h"
 #include "terminal.h"
 
 int saveGame(const GameState *game, const GameConfig *config)
@@ -122,34 +122,37 @@ int loadGame(GameState *game, GameConfig *config)
     return 1;
 }
 
-/* Names match without caring about capitals, so "Ali" and "ali" are one player. */
-static bool sameName(const char *a, const char *b)
-{
-    while (*a && tolower((unsigned char)*a) == tolower((unsigned char)*b)) {
-        a++;
-        b++;
-    }
-    return tolower((unsigned char)*a) == tolower((unsigned char)*b);
-}
-
 void gameInputs(GameState *game, GameConfig *config)
 {
     if (!game || !config) {
         return;
     }
 
-    printf("Connect 4 Game\n");
-    printf("1. New Game\n");
-    printf("2. Resume Game\n");
-    printf("Enter your choice: ");
+    /* The leaderboard is shown here, then the menu comes back. */
+    while (1) {
+        printf("Connect 4 Game\n");
+        printf("1. New Game\n");
+        printf("2. Resume Game\n");
+        printf("3. Leaderboard\n");
+        printf("0. Exit\n");
+        printf("Enter your choice: ");
 
-    config->menu_choice = terminal_read_int();
-    while (config->menu_choice < 1 || config->menu_choice > 2) {
-        if (config->menu_choice == -1) {
+        config->menu_choice = terminal_read_int();
+        while (config->menu_choice < 0 || config->menu_choice > 3) {
+            if (config->menu_choice == -1) {
+                return;
+            }
+            printf("Enter 0-3: ");
+            config->menu_choice = terminal_read_int();
+        }
+        if (config->menu_choice == 0) {
             return;
         }
-        printf("Enter 1 or 2: ");
-        config->menu_choice = terminal_read_int();
+        if (config->menu_choice != 3) {
+            break;
+        }
+        stats_show_leaderboard(LEADERBOARD_FILE);
+        printf("\n");
     }
 
     if (config->menu_choice == 2) {
@@ -272,7 +275,7 @@ void gameInputs(GameState *game, GameConfig *config)
                 config->ai_mode = 0;
                 return;
             }
-            if (!sameName(config->names[PLAYER_ONE],
+            if (!stats_same_name(config->names[PLAYER_ONE],
                           config->names[PLAYER_TWO])) {
                 break;
             }
@@ -526,6 +529,42 @@ void uiHumanvsAI(GameState *game, GameConfig *config)
     }
 }
 
+/* Adds a finished game to the leaderboard: points, wins/losses/draws and
+ * win streaks for each human player. The Computer isn't ranked. */
+static void recordResults(const GameState *game, const GameConfig *config)
+{
+    int winner = rules_check_winner(game);
+    bool draw = config->tie || winner == 3 || winner == 0;
+    int multiplier = config->ai_mode == 2 ? config->ai_difficulty : 1;
+    int humans = config->ai_mode == 2 ? 1 : 2;
+
+    printf("\n");
+    for (int p = PLAYER_ONE; p <= humans; p++) {
+        int result = draw ? RESULT_DRAW
+                   : winner == p ? RESULT_WIN : RESULT_LOSS;
+        int points = 0;
+        char explain[96] = "";
+        if (result == RESULT_WIN) {
+            points = stats_win_points(game, multiplier,
+                                      config->history.undos_used[p],
+                                      explain, sizeof explain);
+        } else if (result == RESULT_DRAW) {
+            points = DRAW_POINTS;
+        }
+
+        PlayerStats ps;
+        if (!stats_record(LEADERBOARD_FILE, config->names[p], result, points,
+                          &ps)) {
+            printf("Couldn't update the leaderboard.\n");
+            continue;
+        }
+        printf("%s: +%d points", config->names[p], points);
+        if (explain[0]) printf("  %s", explain);
+        printf("\n   Total %d, win streak %d (best %d)\n",
+               (int)ps.score, (int)ps.current_streak, (int)ps.best_streak);
+    }
+}
+
 int main(void)
 {
     while (1) {
@@ -554,6 +593,8 @@ int main(void)
             save_slot_path(config.save_slot, path, sizeof path);
             remove(path);
         }
+
+        recordResults(&game, &config);
 
         printf("\nPlay again?\n1. Yes\n2. No\nEnter your choice: ");
         int again = terminal_read_int();
