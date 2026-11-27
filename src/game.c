@@ -1,11 +1,13 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <time.h>
 
 #include "game.h"
 #include "module3.h"
 #include "rules.h"
 #include "saveload.h"
+#include "stats.h"
 #include "terminal.h"
 
 int saveGame(const GameState *game, const GameConfig *config)
@@ -24,7 +26,7 @@ int saveGame(const GameState *game, const GameConfig *config)
             int mode, diff;
             time_t when;
             save_slot_path(s, path, sizeof path);
-            if (load_game_file(path, &tmp, &mode, &diff, &when) != 1) {
+            if (load_game_file(path, &tmp, NULL, NULL, &mode, &diff, &when) != 1) {
                 slot = s;
                 break;
             }
@@ -37,7 +39,9 @@ int saveGame(const GameState *game, const GameConfig *config)
 
     char path[64];
     save_slot_path(slot, path, sizeof path);
-    if (!save_game_file(path, game, config->ai_mode, config->ai_difficulty)) {
+    if (!save_game_file(path, game, &config->history,
+                        config->names[PLAYER_ONE], config->names[PLAYER_TWO],
+                        config->ai_mode, config->ai_difficulty)) {
         printf("Save failed.\n");
         return 0;
     }
@@ -47,6 +51,8 @@ int saveGame(const GameState *game, const GameConfig *config)
 
 typedef struct {
     GameState game;
+    MoveHistory history;
+    char names[MAX_PLAYERS + 1][NAME_LEN];
     int ai_mode;
     int ai_difficulty;
     int slot;
@@ -63,8 +69,8 @@ int loadGame(GameState *game, GameConfig *config)
         char path[64];
         SaveInfo info;
         save_slot_path(s, path, sizeof path);
-        if (load_game_file(path, &info.game, &info.ai_mode,
-                           &info.ai_difficulty, &info.saved_at) != 1) {
+        if (load_game_file(path, &info.game, &info.history, info.names,
+                           &info.ai_mode, &info.ai_difficulty, &info.saved_at) != 1) {
             continue;   /* empty or corrupted slot */
         }
         info.slot = s;
@@ -86,11 +92,12 @@ int loadGame(GameState *game, GameConfig *config)
         char when[64] = "unknown time";
         struct tm *local = localtime(&saves[i].saved_at);
         if (local) strftime(when, sizeof when, "%d %b %Y, %H:%M", local);
-        printf("%d. %s  (%dx%d, %s%s, %d moves)\n", i + 1, when,
+        printf("%d. %s  %s vs %s  (%dx%d%s, %d move%s)\n", i + 1, when,
+               saves[i].names[PLAYER_ONE], saves[i].names[PLAYER_TWO],
                saves[i].game.rows, saves[i].game.cols,
-               saves[i].ai_mode == 2 ? "Human vs AI" : "Human vs Human",
                saves[i].game.powerups ? ", power-ups" : "",
-               saves[i].game.move_count);
+               saves[i].game.move_count,
+               saves[i].game.move_count == 1 ? "" : "s");
     }
     printf("0. Start a new game\nEnter your choice: ");
 
@@ -107,6 +114,8 @@ int loadGame(GameState *game, GameConfig *config)
     config->ai_mode = picked->ai_mode;
     config->ai_difficulty = picked->ai_difficulty;
     config->save_slot = picked->slot;
+    config->history = picked->history;
+    memcpy(config->names, picked->names, sizeof config->names);
     config->win = false;
     config->tie = false;
     printf("\n");
@@ -119,18 +128,31 @@ void gameInputs(GameState *game, GameConfig *config)
         return;
     }
 
-    printf("Connect 4 Game\n");
-    printf("1. New Game\n");
-    printf("2. Resume Game\n");
-    printf("Enter your choice: ");
+    /* The leaderboard is shown here, then the menu comes back. */
+    while (1) {
+        printf("Connect 4 Game\n");
+        printf("1. New Game\n");
+        printf("2. Resume Game\n");
+        printf("3. Leaderboard\n");
+        printf("0. Exit\n");
+        printf("Enter your choice: ");
 
-    config->menu_choice = terminal_read_int();
-    while (config->menu_choice < 1 || config->menu_choice > 2) {
-        if (config->menu_choice == -1) {
+        config->menu_choice = terminal_read_int();
+        while (config->menu_choice < 0 || config->menu_choice > 3) {
+            if (config->menu_choice == -1) {
+                return;
+            }
+            printf("Enter 0-3: ");
+            config->menu_choice = terminal_read_int();
+        }
+        if (config->menu_choice == 0) {
             return;
         }
-        printf("Enter 1 or 2: ");
-        config->menu_choice = terminal_read_int();
+        if (config->menu_choice != 3) {
+            break;
+        }
+        stats_show_leaderboard(LEADERBOARD_FILE);
+        printf("\n");
     }
 
     if (config->menu_choice == 2) {
@@ -238,12 +260,141 @@ void gameInputs(GameState *game, GameConfig *config)
         }
     }
 
+    /* Names are shown in prompts and in the saved games list. */
+    if (config->ai_mode == 1) {
+        printf("\nPlayer 1 (X) name (Enter for \"Player 1\"): ");
+        if (!terminal_read_name(config->names[PLAYER_ONE], NAME_LEN,
+                                "Player 1")) {
+            config->ai_mode = 0;
+            return;
+        }
+        printf("Player 2 (O) name (Enter for \"Player 2\"): ");
+        while (1) {
+            if (!terminal_read_name(config->names[PLAYER_TWO], NAME_LEN,
+                                    "Player 2")) {
+                config->ai_mode = 0;
+                return;
+            }
+            if (!stats_same_name(config->names[PLAYER_ONE],
+                          config->names[PLAYER_TWO])) {
+                break;
+            }
+            printf("Pick a different name from Player 1: ");
+        }
+    } else {
+        printf("\nYour name (Enter for \"Player\"): ");
+        if (!terminal_read_name(config->names[PLAYER_ONE], NAME_LEN,
+                                "Player")) {
+            config->ai_mode = 0;
+            return;
+        }
+        snprintf(config->names[PLAYER_TWO], NAME_LEN, "Computer");
+    }
+
     config->win = false;
     config->tie = false;
     game->move_count = 0;
     game->piece_count = 0;
     game->current_player = PLAYER_ONE;
     terminal_init_board(game);
+    config->history = (MoveHistory){0};
+}
+
+/* Applies a move and writes a sentence about it into msg, so it can be shown
+ * under the board after the screen is cleared. Power-ups stand out with ***.
+ * Returns false (and changes nothing) if the move isn't allowed. */
+static bool playMove(GameState *game, MoveHistory *history, Move move,
+                     const char *who, char *msg, size_t size)
+{
+    GameState before = *game;
+    if (move.col < 0 || history->count >= MAX_MOVES ||
+        !rules_apply_move(game, move, game)) {
+        return false;
+    }
+    history->moves[history->count++] = move;
+
+    if (move.type == MOVE_NORMAL) {
+        snprintf(msg, size, "%s dropped a disc in column %d.",
+                 who, move.col + 1);
+    } else {
+        int cleared = before.piece_count - game->piece_count;
+        const char *name = move.type == MOVE_BOMB ? "BOMB" : "ANVIL";
+        snprintf(msg, size,
+                 "*** %s used %s on column %d and cleared %d disc%s! ***",
+                 who, move.type == MOVE_BOMB ? "a BOMB" : "an ANVIL",
+                 move.col + 1, cleared, cleared == 1 ? "" : "s");
+
+        /* The board before the power-up is still on screen, so print a
+         * banner and the board after it, then wait so it can't be missed. */
+        printf("\n==========================================\n");
+        printf("  %s used %s on column %d!\n", who,
+               move.type == MOVE_BOMB ? "a BOMB" : "an ANVIL", move.col + 1);
+        printf("  %d disc%s cleared.\n", cleared, cleared == 1 ? "" : "s");
+        printf("==========================================\n");
+        printf("Board after the %s:\n", name);
+        terminal_print_board(game);
+        printf("Press Enter to continue...");
+        fflush(stdout);
+        int ch;
+        while ((ch = getchar()) != '\n' && ch != EOF) {}
+    }
+    return true;
+}
+
+/* Undos the current player can still use now; 0 hides the option.
+ * An undo needs two moves to take back: your own and the reply to it. */
+static int undosLeft(const GameState *game, const MoveHistory *history)
+{
+    if (history->count < 2) return 0;
+    int left = rules_undo_limit(game) - history->undos_used[game->current_player];
+    return left > 0 ? left : 0;
+}
+
+/* Takes back the current player's last move and the reply after it, so it is
+ * their turn again in the position before their move. Power-ups can't be
+ * taken back. Returns false (and changes nothing) if the undo isn't allowed. */
+/* "Ali (X)": the name and disc shown in prompts and messages. */
+static void playerLabel(const GameConfig *config, int player,
+                        char *out, size_t size)
+{
+    snprintf(out, size, "%s (%c)", config->names[player],
+             player == PLAYER_ONE ? 'X' : 'O');
+}
+
+static bool undoMove(GameState *game, GameConfig *config, char *msg,
+                     size_t size)
+{
+    MoveHistory *history = &config->history;
+    int n = history->count;
+    if (history->moves[n - 1].type != MOVE_NORMAL ||
+        history->moves[n - 2].type != MOVE_NORMAL) {
+        printf("You can't undo a power-up.\n");
+        return false;
+    }
+
+    GameState replayed;
+    if (!rules_replay(game, history->moves, n - 2, &replayed)) {
+        printf("Undo failed.\n");
+        return false;
+    }
+    *game = replayed;
+    history->count = n - 2;
+    history->undos_used[game->current_player]++;
+
+    /* Say exactly which two discs came off, newest first. */
+    int me = game->current_player;
+    int them = me == PLAYER_ONE ? PLAYER_TWO : PLAYER_ONE;
+    char meName[32], themName[32];
+    playerLabel(config, me, meName, sizeof meName);
+    playerLabel(config, them, themName, sizeof themName);
+    int left = rules_undo_limit(game) - history->undos_used[me];
+    snprintf(msg, size,
+             "<< UNDO >> Removed %s's disc in column %d and %s's disc in "
+             "column %d. %s has %d undo%s left.",
+             themName, history->moves[n - 1].col + 1,
+             meName, history->moves[n - 2].col + 1,
+             meName, left, left == 1 ? "" : "s");
+    return true;
 }
 
 void uiHumanvsHuman(GameState *game, GameConfig *config)
@@ -252,8 +403,11 @@ void uiHumanvsHuman(GameState *game, GameConfig *config)
         return;
     }
 
+    char last[192] = "";   /* what happened on the previous move */
+
     while (!config->win && !config->tie) {
         terminal_print_board(game);
+        if (last[0]) printf("%s\n", last);
 
         int winner = rules_check_winner(game);
         if (winner == 3) {
@@ -261,7 +415,9 @@ void uiHumanvsHuman(GameState *game, GameConfig *config)
             config->tie = true;
             break;
         } else if (winner != 0) {
-            printf("Player %d (%c) wins!\n", winner, winner == P1 ? 'X' : 'O');
+            char winnerName[32];
+            playerLabel(config, winner, winnerName, sizeof winnerName);
+            printf("%s wins!\n", winnerName);
             config->win = true;
             break;
         }
@@ -271,17 +427,24 @@ void uiHumanvsHuman(GameState *game, GameConfig *config)
             break;
         }
 
-        printf("Player %d (%c) turn:\n", game->current_player,
-               game->current_player == PLAYER_ONE ? 'X' : 'O');
+        char who[32];
+        playerLabel(config, game->current_player, who, sizeof who);
+        printf("%s turn:\n", who);
 
-        Move move = terminal_read_move(game);
+        Move move = terminal_read_move(game, undosLeft(game, &config->history));
         if (move.col == -1) return;              /* input closed */
         if (move.col == -2) {                    /* 0 = save and quit */
             if (!saveGame(game, config)) continue;
             printf("Exiting...\n");
             return;
         }
-        if (move.col < 0 || !rules_apply_move(game, move, game)) continue;
+        if (move.col == -4) {                    /* u = undo */
+            if (undoMove(game, config, last, sizeof last)) {
+                terminal_clear_screen();
+            }
+            continue;
+        }
+        if (!playMove(game, &config->history, move, who, last, sizeof last)) continue;
 
         terminal_clear_screen();
     }
@@ -302,8 +465,14 @@ void uiHumanvsAI(GameState *game, GameConfig *config)
         srand((unsigned int)time(NULL));
     }
 
+    char last[192] = "";   /* what happened on the previous move */
+    char me[32], ai[32];
+    playerLabel(config, PLAYER_ONE, me, sizeof me);
+    playerLabel(config, PLAYER_TWO, ai, sizeof ai);
+
     while (!config->win && !config->tie) {
         terminal_print_board(game);
+        if (last[0]) printf("%s\n", last);
 
         int winner = rules_check_winner(game);
         if (winner == 3 || rules_is_draw(game)) {
@@ -311,27 +480,35 @@ void uiHumanvsAI(GameState *game, GameConfig *config)
             config->tie = true;
             break;
         } else if (winner == P1) {
-            printf("You win!\n");
+            printf("%s wins!\n", me);
             config->win = true;
             break;
         } else if (winner == P2) {
-            printf("AI wins!\n");
+            printf("%s wins!\n", ai);
             config->win = true;
             break;
         }
 
         if (game->current_player == PLAYER_ONE) {
-            printf("Your turn (X):\n");
-            Move move = terminal_read_move(game);
+            printf("%s turn:\n", me);
+            Move move = terminal_read_move(game,
+                                           undosLeft(game, &config->history));
             if (move.col == -1) return;          /* input closed */
             if (move.col == -2) {                /* 0 = save and quit */
                 if (!saveGame(game, config)) continue;
                 printf("Exiting...\n");
                 return;
             }
-            if (move.col < 0 || !rules_apply_move(game, move, game)) continue;
+            if (move.col == -4) {                /* u = undo */
+                if (undoMove(game, config, last,
+                             sizeof last)) {
+                    terminal_clear_screen();
+                }
+                continue;
+            }
+            if (!playMove(game, &config->history, move, me, last, sizeof last)) continue;
         } else {
-            printf("AI turn (O):\n");
+            printf("%s turn:\n", ai);
 
             if (difficulty == AI_EASY) {
                 Move valid[MAX_DIM * 3];
@@ -351,15 +528,51 @@ void uiHumanvsAI(GameState *game, GameConfig *config)
                 Move move = validCount > 0
                     ? valid[rand() % validCount]
                     : (Move){-1, MOVE_NORMAL};
-                if (move.col >= 0 && !rules_apply_move(game, move, game)) continue;
+                if (!playMove(game, &config->history, move, ai, last, sizeof last)) continue;
             } else {
                 int timeBudget = (difficulty == AI_NORMAL) ? 100 : 1000;
                 Move move = find_best_move(game, timeBudget);
-                if (!rules_apply_move(game, move, game)) continue;
+                if (!playMove(game, &config->history, move, ai, last, sizeof last)) continue;
             }
         }
 
         terminal_clear_screen();
+    }
+}
+
+/* Adds a finished game to the leaderboard: points, wins/losses/draws and
+ * win streaks for each human player. The Computer isn't ranked. */
+static void recordResults(const GameState *game, const GameConfig *config)
+{
+    int winner = rules_check_winner(game);
+    bool draw = config->tie || winner == 3 || winner == 0;
+    int multiplier = config->ai_mode == 2 ? config->ai_difficulty : 1;
+    int humans = config->ai_mode == 2 ? 1 : 2;
+
+    printf("\n");
+    for (int p = PLAYER_ONE; p <= humans; p++) {
+        int result = draw ? RESULT_DRAW
+                   : winner == p ? RESULT_WIN : RESULT_LOSS;
+        int points = 0;
+        char explain[96] = "";
+        if (result == RESULT_WIN) {
+            points = stats_win_points(game, multiplier,
+                                      config->history.undos_used[p],
+                                      explain, sizeof explain);
+        } else if (result == RESULT_DRAW) {
+            points = DRAW_POINTS;
+        }
+
+        PlayerStats ps;
+        if (!stats_record(LEADERBOARD_FILE, config->names[p], result, points,
+                          &ps)) {
+            printf("Couldn't update the leaderboard.\n");
+            continue;
+        }
+        printf("%s: +%d points", config->names[p], points);
+        if (explain[0]) printf("  %s", explain);
+        printf("\n   Total %d, win streak %d (best %d)\n",
+               (int)ps.score, (int)ps.current_streak, (int)ps.best_streak);
     }
 }
 
@@ -391,6 +604,8 @@ int main(void)
             save_slot_path(config.save_slot, path, sizeof path);
             remove(path);
         }
+
+        recordResults(&game, &config);
 
         printf("\nPlay again?\n1. Yes\n2. No\nEnter your choice: ");
         int again = terminal_read_int();

@@ -259,3 +259,39 @@ bool rules_is_draw(const GameState *state) {
 bool rules_is_terminal(const GameState *state) {
     return rules_check_winner(state) != 0 || rules_is_draw(state);
 }
+
+/* Rebuilds a game from an empty board by playing moves[0..count-1].
+ * Only rows, cols, win_length and powerups are taken from settings.
+ * Fails if a move is illegal or the game was already over before it. */
+bool rules_replay(const GameState *settings, const Move *moves, int count,
+                  GameState *out) {
+    if (!settings || !out || count < 0 || (count > 0 && !moves)) {
+        return false;
+    }
+
+    GameState g = {0};
+    g.rows = settings->rows;
+    g.cols = settings->cols;
+    g.win_length = settings->win_length;
+    g.powerups = settings->powerups;
+    g.current_player = PLAYER_ONE;
+    if (!rules_validate_state(&g)) {
+        return false;
+    }
+
+    for (int i = 0; i < count; i++) {
+        if (rules_is_terminal(&g) || !rules_apply_move(&g, moves[i], &g)) {
+            return false;
+        }
+    }
+    *out = g;
+    return true;
+}
+
+/* Undos each player gets: one for every 16 cells, so 2 on the classic 6x7
+ * board, 1 on 4x4 and 25 on 20x20. */
+int rules_undo_limit(const GameState *state) {
+    if (!state) return 0;
+    int limit = state->rows * state->cols / 16;
+    return limit < 1 ? 1 : limit;
+}
