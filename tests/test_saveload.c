@@ -15,7 +15,7 @@ static void play(GameState *g, MoveHistory *h, Move m)
     h->moves[h->count++] = m;
 }
 
-int main()
+int main(void)
 {
     /* CRC-32 gives the official check value. */
     assert(save_crc32((const uint8_t *)"123456789", 9) == 0xCBF43926u);
