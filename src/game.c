@@ -246,14 +246,41 @@ void gameInputs(GameState *game, GameConfig *config)
     terminal_init_board(game);
 }
 
+/* Applies a move and writes a sentence about it into msg, so it can be shown
+ * under the board after the screen is cleared. Power-ups stand out with ***.
+ * Returns false (and changes nothing) if the move isn't allowed. */
+static bool playMove(GameState *game, Move move, const char *who,
+                     char *msg, size_t size)
+{
+    GameState before = *game;
+    if (move.col < 0 || !rules_apply_move(game, move, game)) {
+        return false;
+    }
+
+    if (move.type == MOVE_NORMAL) {
+        snprintf(msg, size, "%s dropped a disc in column %d.",
+                 who, move.col + 1);
+    } else {
+        int cleared = before.piece_count - game->piece_count;
+        snprintf(msg, size,
+                 "*** %s used %s on column %d and cleared %d disc%s! ***",
+                 who, move.type == MOVE_BOMB ? "a BOMB" : "an ANVIL",
+                 move.col + 1, cleared, cleared == 1 ? "" : "s");
+    }
+    return true;
+}
+
 void uiHumanvsHuman(GameState *game, GameConfig *config)
 {
     if (!game || !config) {
         return;
     }
 
+    char last[128] = "";   /* what happened on the previous move */
+
     while (!config->win && !config->tie) {
         terminal_print_board(game);
+        if (last[0]) printf("%s\n", last);
 
         int winner = rules_check_winner(game);
         if (winner == 3) {
@@ -271,8 +298,10 @@ void uiHumanvsHuman(GameState *game, GameConfig *config)
             break;
         }
 
-        printf("Player %d (%c) turn:\n", game->current_player,
-               game->current_player == PLAYER_ONE ? 'X' : 'O');
+        char who[32];
+        snprintf(who, sizeof who, "Player %d (%c)", game->current_player,
+                 game->current_player == PLAYER_ONE ? 'X' : 'O');
+        printf("%s turn:\n", who);
 
         Move move = terminal_read_move(game);
         if (move.col == -1) return;              /* input closed */
@@ -281,7 +310,7 @@ void uiHumanvsHuman(GameState *game, GameConfig *config)
             printf("Exiting...\n");
             return;
         }
-        if (move.col < 0 || !rules_apply_move(game, move, game)) continue;
+        if (!playMove(game, move, who, last, sizeof last)) continue;
 
         terminal_clear_screen();
     }
@@ -302,8 +331,11 @@ void uiHumanvsAI(GameState *game, GameConfig *config)
         srand((unsigned int)time(NULL));
     }
 
+    char last[128] = "";   /* what happened on the previous move */
+
     while (!config->win && !config->tie) {
         terminal_print_board(game);
+        if (last[0]) printf("%s\n", last);
 
         int winner = rules_check_winner(game);
         if (winner == 3 || rules_is_draw(game)) {
@@ -329,7 +361,7 @@ void uiHumanvsAI(GameState *game, GameConfig *config)
                 printf("Exiting...\n");
                 return;
             }
-            if (move.col < 0 || !rules_apply_move(game, move, game)) continue;
+            if (!playMove(game, move, "You", last, sizeof last)) continue;
         } else {
             printf("AI turn (O):\n");
 
@@ -351,11 +383,11 @@ void uiHumanvsAI(GameState *game, GameConfig *config)
                 Move move = validCount > 0
                     ? valid[rand() % validCount]
                     : (Move){-1, MOVE_NORMAL};
-                if (move.col >= 0 && !rules_apply_move(game, move, game)) continue;
+                if (!playMove(game, move, "AI", last, sizeof last)) continue;
             } else {
                 int timeBudget = (difficulty == AI_NORMAL) ? 100 : 1000;
                 Move move = find_best_move(game, timeBudget);
-                if (!rules_apply_move(game, move, game)) continue;
+                if (!playMove(game, move, "AI", last, sizeof last)) continue;
             }
         }
 
