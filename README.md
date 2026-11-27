@@ -75,28 +75,43 @@ git clone [https://github.com/Asher-1971/Connect4](https://github.com/Asher-1971
 cd Connect4
 ```
 
-The V1 layout uses `include/`, `src/`, and `tests/`. Power-ups are chosen in
-the menu when you start a new game (Off or On), so one program covers both.
+The V1 layout uses `include/`, `src/`, and `tests/`.
 
-Build the game with GCC:
+Run these commands from the repository root. The game now uses the save/load
+and stats modules as well as the rules, terminal, and AI modules. Power-ups
+are selected in the new-game menu (Off or On), not with a compiler flag.
 
-```bash
-gcc -std=c17 -Wall -Wextra -Werror -pedantic -DENABLE_POWERUPS=0 -Iinclude src\game.c src\module3.c src\rules.c src\terminal.c -o connect4.exe
+```powershell
+gcc -std=c17 -Wall -Wextra -Werror -pedantic -Iinclude src/game.c src/module3.c src/rules.c src/terminal.c src/saveload.c src/stats.c -o connect4.exe
+.\connect4.exe
 ```
 
-Build and run the rules tests:
+Build and run all tests:
 
-```bash
-gcc -std=c17 -Wall -Wextra -Werror -pedantic -Iinclude tests\test_canonical_state.c src\module3.c src\rules.c src\terminal.c -o test-rules.exe
-test-rules.exe
+```powershell
+gcc -std=c17 -Wall -Wextra -Werror -pedantic -Iinclude tests/test_canonical_state.c src/module3.c src/rules.c src/terminal.c -o test-rules.exe
+.\test-rules.exe
+
+gcc -std=c17 -Wall -Wextra -Werror -pedantic -Iinclude tests/test_saveload.c src/saveload.c src/module3.c src/rules.c src/terminal.c -o test-saveload.exe
+.\test-saveload.exe
+
+gcc -std=c17 -Wall -Wextra -Werror -pedantic -Iinclude tests/test_stats.c src/stats.c src/saveload.c src/rules.c -o test-stats.exe
+.\test-stats.exe
 ```
 
-Build and run the save/load tests:
+On Linux or macOS, use the same source paths, omit `.exe` from each output
+name, and run each program with `./`. For example:
 
 ```bash
-gcc -std=c17 -Wall -Wextra -Werror -pedantic -Iinclude tests\test_saveload.c src\saveload.c src\module3.c src\rules.c src\terminal.c -o test-saveload.exe
-test-saveload.exe
+gcc -std=c17 -Wall -Wextra -Werror -pedantic -Iinclude src/game.c src/module3.c src/rules.c src/terminal.c src/saveload.c src/stats.c -o connect4
+./connect4
 ```
+
+Clang can be used in place of GCC for the game and rules test. The save/load
+and stats tests currently have `main()` declarations that Clang warns about
+under `-Werror`; build those tests without `-Werror` until their declarations
+are changed to `main(void)`.
+
 ### Save files
 
 Enter `0` during a game to save and quit, then pick **Resume Game** from the
@@ -108,16 +123,6 @@ is finished is removed from the list. Each save is a binary file (see
 `include/saveload.h` for the byte layout). A CRC-32 checksum (the same one ZIP
 and PNG files use) at the end of the file is checked on load, so a corrupted
 or hand-edited save is rejected instead of loading a broken board.
-
-On Linux or macOS, replace backslashes with `/` and remove `.exe`. Clang users can replace `gcc` with `clang`. Full compilation commands for each OS will be added once pre-compiled binaries are released.
-
-Run the game:
-
-| Operating System | Compile Command | Run Command |
-| :--- | :--- | :--- |
-| **Windows** | `connect4.exe` | `connect4.exe` |
-| **Linux** | `./connect4` | `./connect4` |
-| **macOS** | `./connect4` | `./connect4` |
 
 ### Download Pre-compiled Binaries
 
