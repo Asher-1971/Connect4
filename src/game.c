@@ -262,10 +262,25 @@ static bool playMove(GameState *game, Move move, const char *who,
                  who, move.col + 1);
     } else {
         int cleared = before.piece_count - game->piece_count;
+        const char *name = move.type == MOVE_BOMB ? "BOMB" : "ANVIL";
         snprintf(msg, size,
                  "*** %s used %s on column %d and cleared %d disc%s! ***",
                  who, move.type == MOVE_BOMB ? "a BOMB" : "an ANVIL",
                  move.col + 1, cleared, cleared == 1 ? "" : "s");
+
+        /* The board before the power-up is still on screen, so print a
+         * banner and the board after it, then wait so it can't be missed. */
+        printf("\n==========================================\n");
+        printf("  %s used %s on column %d!\n", who,
+               move.type == MOVE_BOMB ? "a BOMB" : "an ANVIL", move.col + 1);
+        printf("  %d disc%s cleared.\n", cleared, cleared == 1 ? "" : "s");
+        printf("==========================================\n");
+        printf("Board after the %s:\n", name);
+        terminal_print_board(game);
+        printf("Press Enter to continue...");
+        fflush(stdout);
+        int ch;
+        while ((ch = getchar()) != '\n' && ch != EOF) {}
     }
     return true;
 }
