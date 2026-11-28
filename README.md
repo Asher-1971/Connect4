@@ -123,13 +123,6 @@ or hand-edited save is rejected instead of loading a broken board.
 
 ### Download Pre-compiled Binaries
 
-Push a version tag such as `v1.0.0` to build and publish all three binaries:
-
-```bash
-git tag v1.0.0
-git push origin v1.0.0
-```
-
 The workflow builds and tests the game on Linux, macOS, and Windows before
 creating a [GitHub Release](https://github.com/Asher-1971/Connect4/releases)
 with `connect4-linux-x64`, `connect4-macos`, and `connect4-windows.exe`.
